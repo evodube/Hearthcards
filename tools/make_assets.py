@@ -140,7 +140,7 @@ def card_back():
     for i in range(0, W + H, 40):
         d.line((i, 0, i - H, H), fill=(82, 46, 32), width=10)
     d.rounded_rectangle((60, 260, W - 60, 440), 20, fill=(70, 38, 26), outline=(196, 160, 80), width=6)
-    centered(d, (W // 2, 350), "Hearthcards", font("Cinzel-SemiBold.ttf", 60), (220, 186, 100))
+    centered(d, (W // 2, 350), "Hearthcards", font("Cinzel-SemiBold.ttf", 46), (220, 186, 100))
     return img
 
 
