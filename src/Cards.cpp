@@ -618,6 +618,75 @@ namespace Cards
 		};
 		MenuSink g_menuSink;
 
+		// ------------------------------------------------------------------ flip a card in the inventory
+		// The inventory can't rotate items, so a key turns the selected card over (front <-> back).
+		void FlipInventoryCard()
+		{
+			auto* mgr = RE::Inventory3DManager::GetSingleton();
+			if (!mgr) {
+				return;
+			}
+			bool flipped = false;
+			for (auto& m : mgr->GetRuntimeData().loadedModels) {
+				if (!m.itemBase || CardIndex(m.itemBase->GetFormID()) < 0 || !m.spModel) {
+					continue;
+				}
+				auto* node = m.spModel->AsNode();
+				if (!node) {
+					continue;
+				}
+				for (auto& child : node->GetChildren()) {
+					if (!child) {
+						continue;
+					}
+					// 180 degrees about the card's long (Y) axis: x -> -x, z -> -z
+					auto& r = child->local.rotate;
+					for (int c = 0; c < 3; ++c) {
+						r.entry[0][c] = -r.entry[0][c];
+						r.entry[2][c] = -r.entry[2][c];
+					}
+					child->local.translate.x = -child->local.translate.x;
+					child->local.translate.z = -child->local.translate.z;
+				}
+				RE::NiUpdateData ud{};
+				m.spModel->Update(ud);
+				flipped = true;
+			}
+			if (flipped && Config::Get().logDebug) {
+				spdlog::info("Inventory card flipped");
+			}
+		}
+
+		bool ItemMenuOpen(RE::UI* a_ui)
+		{
+			return a_ui && (a_ui->IsMenuOpen(RE::InventoryMenu::MENU_NAME) || a_ui->IsMenuOpen(RE::ContainerMenu::MENU_NAME) ||
+			                   a_ui->IsMenuOpen(RE::BarterMenu::MENU_NAME) || a_ui->IsMenuOpen(RE::GiftMenu::MENU_NAME));
+		}
+
+		class FlipSink final : public RE::BSTEventSink<RE::InputEvent*>
+		{
+		public:
+			RE::BSEventNotifyControl ProcessEvent(RE::InputEvent* const* a_event, RE::BSTEventSource<RE::InputEvent*>*) override
+			{
+				if (!g_ready || !a_event) {
+					return RE::BSEventNotifyControl::kContinue;
+				}
+				const auto key = static_cast<std::uint32_t>(Config::Get().flipKey);
+				for (auto* e = *a_event; e; e = e->next) {
+					auto* b = e->AsButtonEvent();
+					if (!b || !b->IsDown() || b->GetDevice() != RE::INPUT_DEVICE::kKeyboard || b->GetIDCode() != key) {
+						continue;
+					}
+					auto* cm = RE::ControlMap::GetSingleton();
+					if (ItemMenuOpen(RE::UI::GetSingleton()) && !(cm && cm->textEntryCount > 0)) {
+						SKSE::GetTaskInterface()->AddUITask([] { FlipInventoryCard(); });
+					}
+				}
+				return RE::BSEventNotifyControl::kContinue;
+			}
+		};
+		FlipSink g_flipSink;
+
 		// ------------------------------------------------------------------ co-save
 		constexpr std::uint32_t kSaveId = 'HCRD';
 		constexpr std::uint32_t kRecPosters = 'POST';
@@ -861,6 +930,9 @@ namespace Cards
 		}
 		if (auto* ui = RE::UI::GetSingleton()) {
 			ui->AddEventSink<RE::MenuOpenCloseEvent>(&g_menuSink);
+		}
+		if (auto* input = RE::BSInputDeviceManager::GetSingleton()) {
+			input->AddEventSink<RE::InputEvent*>(&g_flipSink);
 		}
 		g_ready = true;
 		RebuildLists({});

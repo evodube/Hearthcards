@@ -28,6 +28,7 @@ namespace Config
 		bool  vendors = true;
 		bool  noDuplicates = true;  // a copy of a card you already have never stays in your inventory
 		float reach = 350.0f;       // how far from you a poster can be hung (game units)
+		int   flipKey = 0x30;      // DirectInput scan code; B: turn the selected card over in the inventory
 		bool  logDebug = false;
 	};
 
