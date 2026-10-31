@@ -14,6 +14,7 @@
 
 #include "Cards.h"
 
+#include "Art.h"
 #include "Config.h"
 #include "EspIds.h"
 #include "Placement.h"
@@ -57,6 +58,7 @@ namespace Cards
 		std::array<RE::TESObjectBOOK*, kCards> g_cards{};
 		std::unordered_map<RE::FormID, int>   g_cardIndex;
 		std::array<RE::BSFixedString, kCards> g_slotNames;
+		std::array<std::uint8_t, kCards>      g_rarity{};  // 0 common, 1 uncommon, 2 rare (plugin, or the picture's [C]/[U]/[R] tag)
 		bool                                  g_ready = false;
 
 		// ------------------------------------------------------------------ save data (main thread)
@@ -210,7 +212,7 @@ namespace Cards
 			std::array<std::vector<RE::TESForm*>, 3> by;
 			for (int i = 0; i < kCards; ++i) {
 				if (g_cards[i] && (!Config::Get().noDuplicates || !a_owned.test(i))) {
-					by[EspIds::kRarity[i]].push_back(g_cards[i]);
+					by[g_rarity[i]].push_back(g_cards[i]);
 				}
 			}
 			std::vector<RE::TESForm*> weighted;
@@ -379,7 +381,7 @@ namespace Cards
 			constexpr std::array<int, 3>     kWeight{ 6, 3, 1 };
 			for (int i = 0; i < kCards; ++i) {
 				if (g_cards[i] && !(cfg.noDuplicates && owned.test(i))) {
-					pool.emplace_back(i, kWeight[EspIds::kRarity[i]]);
+					pool.emplace_back(i, kWeight[g_rarity[i]]);
 				}
 			}
 			static std::mt19937 rng{ std::random_device{}() };
@@ -805,6 +807,15 @@ namespace Cards
 				g_cardIndex[g_cards[i]->GetFormID()] = i;
 			}
 			g_slotNames[i] = fmt::format("Card{:03}", i + 1).c_str();
+			g_rarity[i] = EspIds::kRarity[i];
+			if (const auto* art = Art::Get(i + 1)) {
+				if (art->rarity >= 0) {
+					g_rarity[i] = static_cast<std::uint8_t>(art->rarity);
+				}
+				if (!art->name.empty() && g_cards[i]) {
+					g_cards[i]->fullName = fmt::format("Trading Card No. {:03} - {}", i + 1, art->name).c_str();
+				}
+			}
 		}
 		if (!g_poster || !g_rolled || !g_ghost || !g_ghostRed || !g_lootList || !g_vendorList || !g_drawerList || g_cardIndex.empty()) {
 			spdlog::critical("Hearthcards.esp is missing or out of date - the mod is switched off");

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(Hearthcards VERSION 0.3.1 LANGUAGES CXX)
+project(Hearthcards VERSION 0.4.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -15,9 +15,10 @@ include(extern/CommonLibSSE-NG/cmake/CommonLibSSE.cmake)
 add_commonlibsse_plugin(${PROJECT_NAME}
     AUTHOR "evodube"
     USE_ADDRESS_LIBRARY
-    SOURCES src/main.cpp src/Config.cpp src/Cards.cpp src/Placement.cpp)
+    SOURCES src/main.cpp src/Config.cpp src/Cards.cpp src/Placement.cpp src/Art.cpp src/Dds.cpp)
 
-target_include_directories(${PROJECT_NAME} PRIVATE src)
+find_path(STB_INCLUDE_DIRS "stb_image.h" REQUIRED)
+target_include_directories(${PROJECT_NAME} PRIVATE src ${STB_INCLUDE_DIRS})
 target_precompile_headers(${PROJECT_NAME} PRIVATE src/PCH.h)
 target_compile_definitions(${PROJECT_NAME} PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
 target_link_libraries(${PROJECT_NAME} PRIVATE dxgi)

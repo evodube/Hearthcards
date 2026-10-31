@@ -12,7 +12,9 @@
 // You should have received a copy of the GNU General Public License along with this program (LICENSE.txt).
 // If not, see <https://www.gnu.org/licenses/>.
 
+#include "Art.h"
 #include "Cards.h"
+#include "EspIds.h"
 #include "Config.h"
 #include "Placement.h"
 
@@ -136,6 +138,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 		REL::Module::get().version().string("."sv));
 	LogEnvironment();
 	Config::Load();
+	Art::Start(EspIds::kCardCount);
 	Cards::Install();
 	if (!SKSE::GetMessagingInterface()->RegisterListener(OnMessage)) {
 		spdlog::error("Could not register with the SKSE messaging interface");

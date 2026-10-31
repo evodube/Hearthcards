@@ -23,6 +23,13 @@ Skyrim Special Edition 1.5.97 and Anniversary Edition 1.6.x (Steam and GOG), one
   - **Move** picks it up into placement mode again.
   - **Take Down** rolls it back into your inventory; its cards stay with it and are pinned again when you hang it.
 
+## Your own card art
+
+Drop pictures into `Data\SKSE\Plugins\Hearthcards\Cards\` and start the game - they're converted to
+the card textures automatically. Name them by card number: `037.png`, or `037 - The Dragonborn [R].png` to
+also set the name and rarity (`[C]`, `[U]`, `[R]`); `back.png` is the card back. Any size, png/jpg/bmp/tga,
+cropped to a 5:7 card. Details in `Data\SKSE\Plugins\Hearthcards\Cards\README.txt`.
+
 ## Settings
 
 `Data\SKSE\Plugins\Hearthcards.ini`: loot chances, which loot gets cards, the duplicate rule, and how far

@@ -145,9 +145,9 @@ def main():
     cards = load_cards()
     books = b""
     for n, (name, rarity) in cards.items():
-        desc = ("<p align='center'><font face='$HandwrittenFont' size='26'>" + card_title(n, name) + "</font><br>"
-                f"<img src='img://Textures/Hearthcards/Cards/Card{n:03}.png' width='280' height='392'><br>"
-                f"<font face='$HandwrittenFont' size='22'>{RARITY_NAMES[rarity]}</font></p>")
+        # just the number and the art: names and rarities can come from the picture files at runtime
+        desc = (f"<p align='center'><font face='$HandwrittenFont' size='26'>No. {n:03}</font><br>"
+                f"<img src='img://Textures/Hearthcards/Cards/Card{n:03}.png' width='280' height='392'></p>")
         value = {"C": 5, "U": 15, "R": 50}[rarity]
         books += book(card_fid(n), f"HC_Card{n:03}", card_title(n, name), f"Hearthcards\\Cards\\Card{n:03}.nif", desc, value, 0.0)
     books += book(fid("PosterRolled"), "HC_PosterRolled", "Card Poster (rolled)", "Hearthcards\\PosterRolled.nif",

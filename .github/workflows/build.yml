@@ -105,6 +105,8 @@ jobs:
           Copy-Item Hearthcards.ini "$out/Data/SKSE/Plugins/"
           Copy-Item LICENSE.txt "$out/Data/SKSE/Plugins/Hearthcards/"
           Copy-Item README.md "$out/Data/SKSE/Plugins/Hearthcards/"
+          New-Item -ItemType Directory -Force -Path "$out/Data/SKSE/Plugins/Hearthcards/Cards" | Out-Null
+          Copy-Item assets/Cards-README.txt "$out/Data/SKSE/Plugins/Hearthcards/Cards/README.txt"
           Get-ChildItem -Recurse $out | Measure-Object -Property Length -Sum | Format-List Count, Sum
 
       - name: Publish package to dist branch
