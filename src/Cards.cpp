@@ -326,8 +326,8 @@ namespace Cards
 			return owned;
 		}
 
-		// General goods merchants always have cards on the shelf: every 2 days a fresh set of
-		// iMerchantCards different cards you don't own yet (6:3:1 common:uncommon:rare).
+		// General goods merchants always have cards on the shelf: with every restock (2 days) a fresh set
+		// of iMerchantCards different cards you don't own yet (6:3:1 common:uncommon:rare).
 		void StockMerchant(RE::Actor* a_merchant)
 		{
 			const auto& cfg = Config::Get();
@@ -340,8 +340,23 @@ namespace Cards
 			if (!base || !g_merchantChests.contains(base->GetFormID())) {
 				return;
 			}
-			auto*         cal = RE::Calendar::GetSingleton();
-			const auto    period = static_cast<std::uint32_t>((cal ? cal->GetDaysPassed() : 0.0f) / 2.0f) + 1;
+			// Do the game's own restock first (it would otherwise run when Barter opens and wipe our cards):
+			// same rule as the game, every iDaysToRespawnVendor days.
+			auto*       cal = RE::Calendar::GetSingleton();
+			const auto  today = static_cast<std::uint32_t>(cal ? cal->GetDaysPassed() : 0.0f);
+			auto&       vendor = faction->vendorData;
+			std::uint32_t respawnDays = 2;
+			if (auto* gs = RE::GameSettingCollection::GetSingleton()) {
+				if (auto* st = gs->GetSetting("iDaysToRespawnVendor")) {
+					respawnDays = static_cast<std::uint32_t>((std::max)(1, st->GetSInt()));
+				}
+			}
+			if (today >= vendor.lastDayReset + respawnDays || vendor.lastDayReset > today) {
+				chest->ResetInventory(false);
+				vendor.lastDayReset = today;
+				spdlog::info("Merchant {:08X}: stock reset (day {})", a_merchant->GetFormID(), today);
+			}
+			const auto    period = vendor.lastDayReset + 1;  // one card set per vanilla restock
 			const CardSet owned = OwnedNow();
 			const auto    inChest = CardCounts(chest);
 			const bool    restock = g_stocked[chest->GetFormID()] != period;
