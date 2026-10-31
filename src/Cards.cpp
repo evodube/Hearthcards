@@ -55,7 +55,7 @@ namespace Cards
 		RE::TESLevItem*                       g_lootList = nullptr;
 		RE::TESLevItem*                       g_vendorList = nullptr;
 		RE::TESLevItem*                       g_drawerList = nullptr;
-		std::array<RE::TESObjectBOOK*, kCards> g_cards{};
+		std::array<RE::TESObjectMISC*, kCards> g_cards{};
 		std::unordered_map<RE::FormID, int>   g_cardIndex;
 		std::array<RE::BSFixedString, kCards> g_slotNames;
 		std::array<std::uint8_t, kCards>      g_rarity{};  // 0 common, 1 uncommon, 2 rare (plugin, or the picture's [C]/[U]/[R] tag)
@@ -115,7 +115,7 @@ namespace Cards
 				return out;
 			}
 			const auto counts = a_ref->GetInventoryCounts([](RE::TESBoundObject& a_obj) {
-				return a_obj.GetFormType() == RE::FormType::Book && g_cardIndex.contains(a_obj.GetFormID());
+				return a_obj.GetFormType() == RE::FormType::Misc && g_cardIndex.contains(a_obj.GetFormID());
 			});
 			for (const auto& [obj, n] : counts) {
 				const int i = obj ? CardIndex(obj->GetFormID()) : -1;
@@ -802,7 +802,7 @@ namespace Cards
 		g_vendorList = Lookup<RE::TESLevItem>(EspIds::kListVendor);
 		g_drawerList = Lookup<RE::TESLevItem>(EspIds::kListDrawer);
 		for (int i = 0; i < kCards; ++i) {
-			g_cards[i] = Lookup<RE::TESObjectBOOK>(EspIds::kCardBase + i);
+			g_cards[i] = Lookup<RE::TESObjectMISC>(EspIds::kCardBase + i);
 			if (g_cards[i]) {
 				g_cardIndex[g_cards[i]->GetFormID()] = i;
 			}

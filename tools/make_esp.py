@@ -16,7 +16,7 @@
 """Generates Hearthcards.esp (ESL-flagged, no scripts) and src/EspIds.h from tools/cards.csv.
 
 Records:
-  BOOK  HC_Card001..   - the cards (notes: reading one shows its art)
+  MISC  HC_Card001..   - the cards (the inventory shows the 3D card)
   BOOK  HC_PosterRolled - the rolled-up poster (reading it starts placement; the DLL closes the book)
   CONT  HC_Poster       - the hung poster; its inventory holds the pinned cards
   STAT  HC_PosterGhost / HC_PosterGhostRed - the placement preview (fits / doesn't fit)
@@ -47,6 +47,7 @@ LEATHER_STRIPS = 0x000800E4
 HIGH_POLY_NOTE = 0x00097788      # STAT: the book menu shows a note
 ITM_NOTE_UP = 0x000C7A54         # SNDR
 VENDOR_ITEM_BOOK = 0x000937A2    # KYWD
+VENDOR_ITEM_CLUTTER = 0x000914E9 # KYWD
 
 HDR_LINES = """// Hearthcards - collect trading cards and pin them to a poster in Skyrim Special Edition.
 // Copyright (C) 2026 evodube
@@ -143,14 +144,16 @@ def stat(formid, edid, model):
 
 def main():
     cards = load_cards()
-    books = b""
+    misc = b""
     for n, (name, rarity) in cards.items():
-        # just the number and the art: names and rarities can come from the picture files at runtime
-        desc = (f"<p align='center'><font face='$HandwrittenFont' size='26'>No. {n:03}</font><br>"
-                f"<img src='img://Textures/Hearthcards/Cards/Card{n:03}.png' width='280' height='392'></p>")
+        # a plain item: the inventory shows the 3D card (rotate / zoom to see both sides)
         value = {"C": 5, "U": 15, "R": 50}[rarity]
-        books += book(card_fid(n), f"HC_Card{n:03}", card_title(n, name), f"Hearthcards\\Cards\\Card{n:03}.nif", desc, value, 0.0)
-    books += book(fid("PosterRolled"), "HC_PosterRolled", "Card Poster (rolled)", "Hearthcards\\PosterRolled.nif",
+        misc += record("MISC", card_fid(n),
+                       sub("EDID", zstr(f"HC_Card{n:03}")) + obnd(-3, -4, 0, 3, 4, 0) + sub("FULL", zstr(card_title(n, name))) +
+                       sub("MODL", zstr(f"Hearthcards\\Cards\\Card{n:03}.nif")) + sub("YNAM", u32(ITM_NOTE_UP)) +
+                       sub("ZNAM", u32(ITM_NOTE_UP)) + sub("KSIZ", u32(1)) + sub("KWDA", u32(VENDOR_ITEM_CLUTTER)) +
+                       sub("DATA", u32(value) + f32(0.0)))
+    books = book(fid("PosterRolled"), "HC_PosterRolled", "Card Poster (rolled)", "Hearthcards\\PosterRolled.nif",
                   "A rolled-up poster for a trading card collection.", 25, 1.0)
 
     cont = record("CONT", fid("Poster"),
@@ -174,8 +177,8 @@ def main():
     lists += lvli(fid("ListVendor"), "HC_CardsVendor", weighted)
     lists += lvli(fid("ListDrawer"), "HC_CardsDrawer", weighted)
 
-    body = (group("BOOK", books) + group("CONT", cont) + group("STAT", stats) + group("COBJ", cobj) + group("LVLI", lists))
-    groups = 5
+    body = (group("BOOK", books) + group("MISC", misc) + group("CONT", cont) + group("STAT", stats) + group("COBJ", cobj) + group("LVLI", lists))
+    groups = 6
     next_id = CARD_BASE + len(cards)
     hedr = struct.pack("<fiI", 1.70, COUNT + groups, next_id)
     tes4 = (sub("HEDR", hedr) + sub("CNAM", zstr("evodube")) +
