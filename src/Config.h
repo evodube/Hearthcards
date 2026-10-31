@@ -21,7 +21,8 @@ namespace Config
 	{
 		int   lootChance = 10;     // % per bandit/draugr/falmer/... corpse or dungeon chest, and per citizen's pockets
 		int   drawerChance = 100;  // % when a drawer/end table's misc roll lands on the card entry (about 1 roll in 11)
-		int   vendorChance = 100;  // same for general goods merchants' misc stock (about 1 roll in 15)
+		int   vendorChance = 100;  // unused since 0.2.0 (merchants carry iMerchantCards instead)
+		int   merchantCards = 3;   // different cards every general goods merchant carries, refreshed every 2 days
 		bool  loot = true;
 		bool  drawers = true;
 		bool  vendors = true;

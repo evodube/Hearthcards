@@ -43,7 +43,7 @@ namespace Cards
 			0x001046D2,  // LootCitizenPocketsPoor
 		};
 		constexpr RE::FormID kDrawerList = 0x0010E8AA;  // LItemFurnitureMiscItems75 (drawers, end tables)
-		constexpr RE::FormID kVendorList = 0x0009AF0A;  // LItemMiscVendorMiscItems75 (general goods merchants)
+		constexpr RE::FormID kVendorList = 0x0009AF0A;  // LItemMiscVendorMiscItems75: its chests are the general goods merchants
 
 		// ------------------------------------------------------------------ forms
 		RE::TESObjectCONT*                    g_poster = nullptr;
@@ -63,6 +63,9 @@ namespace Cards
 		std::vector<RE::FormID> g_posters;  // every hung poster
 		std::vector<CardSet>    g_stash;    // cards of taken-down posters, re-pinned when a poster is hung again
 		std::vector<RE::FormID> g_staleGhosts;
+		std::unordered_map<RE::FormID, std::uint32_t> g_stocked;  // merchant chest -> restock period (2 days) last stocked
+
+		std::unordered_set<RE::FormID> g_merchantChests;  // chest base forms of general goods merchants
 
 		struct PosterView
 		{
@@ -310,6 +313,84 @@ namespace Cards
 			}
 		}
 
+		// ------------------------------------------------------------------ merchants
+		CardSet OwnedNow()
+		{
+			CardSet    owned = PinnedEverywhere();
+			const auto have = CardCounts(RE::PlayerCharacter::GetSingleton());
+			for (int i = 0; i < kCards; ++i) {
+				if (have[i] > 0) {
+					owned.set(i);
+				}
+			}
+			return owned;
+		}
+
+		// General goods merchants always have cards on the shelf: every 2 days a fresh set of
+		// iMerchantCards different cards you don't own yet (6:3:1 common:uncommon:rare).
+		void StockMerchant(RE::Actor* a_merchant)
+		{
+			const auto& cfg = Config::Get();
+			if (!a_merchant || !cfg.vendors || cfg.merchantCards <= 0) {
+				return;
+			}
+			auto* faction = a_merchant->GetVendorFaction();
+			auto* chest = faction ? faction->vendorData.merchantContainer : nullptr;
+			auto* base = chest ? chest->GetBaseObject() : nullptr;
+			if (!base || !g_merchantChests.contains(base->GetFormID())) {
+				return;
+			}
+			auto*         cal = RE::Calendar::GetSingleton();
+			const auto    period = static_cast<std::uint32_t>((cal ? cal->GetDaysPassed() : 0.0f) / 2.0f) + 1;
+			const CardSet owned = OwnedNow();
+			const auto    inChest = CardCounts(chest);
+			const bool    restock = g_stocked[chest->GetFormID()] != period;
+			for (int i = 0; i < kCards; ++i) {
+				if (inChest[i] <= 0 || !g_cards[i]) {
+					continue;
+				}
+				// a new period clears the shelf; cards you've got since then go; never two of one card
+				const bool all = restock || (cfg.noDuplicates && owned.test(i));
+				const int  drop = all ? inChest[i] : inChest[i] - 1;
+				if (drop > 0) {
+					chest->RemoveItem(g_cards[i], drop, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
+				}
+			}
+			if (!restock) {
+				return;  // what you bought this period stays bought
+			}
+			g_stocked[chest->GetFormID()] = period;
+			std::vector<std::pair<int, int>> pool;  // card, weight
+			constexpr std::array<int, 3>     kWeight{ 6, 3, 1 };
+			for (int i = 0; i < kCards; ++i) {
+				if (g_cards[i] && !(cfg.noDuplicates && owned.test(i))) {
+					pool.emplace_back(i, kWeight[EspIds::kRarity[i]]);
+				}
+			}
+			static std::mt19937 rng{ std::random_device{}() };
+			std::string         added;
+			for (int k = 0; k < cfg.merchantCards && !pool.empty(); ++k) {
+				int total = 0;
+				for (const auto& [i, w] : pool) {
+					total += w;
+				}
+				int roll = std::uniform_int_distribution<int>(0, total - 1)(rng);
+				auto it = pool.begin();
+				for (; it != pool.end(); ++it) {
+					if ((roll -= it->second) < 0) {
+						break;
+					}
+				}
+				if (it == pool.end()) {
+					it = std::prev(pool.end());
+				}
+				chest->AddObjectToContainer(g_cards[it->first], nullptr, 1, nullptr);
+				added += fmt::format("{}{}", added.empty() ? "" : ", ", it->first + 1);
+				pool.erase(it);
+			}
+			spdlog::info("Merchant {:08X} restocked with cards {}", a_merchant->GetFormID(), added);
+		}
+
 		// ------------------------------------------------------------------ poster menu
 		class MenuCallback final : public RE::IMessageBoxCallback
 		{
@@ -494,6 +575,14 @@ namespace Cards
 					} else {
 						Placement::RequestNew();
 					}
+				} else if (a_event->menuName == RE::DialogueMenu::MENU_NAME) {
+					SKSE::GetTaskInterface()->AddTask([] {
+						auto* topics = RE::MenuTopicManager::GetSingleton();
+						auto  speaker = topics ? topics->speaker.get() : RE::NiPointer<RE::TESObjectREFR>{};
+						if (auto* actor = speaker ? speaker->As<RE::Actor>() : nullptr) {
+							StockMerchant(actor);
+						}
+					});
 				} else if (a_event->menuName == RE::LoadingMenu::MENU_NAME) {
 					SKSE::GetTaskInterface()->AddTask([] { Placement::Cancel(); });
 				}
@@ -507,6 +596,7 @@ namespace Cards
 		constexpr std::uint32_t kRecPosters = 'POST';
 		constexpr std::uint32_t kRecStash = 'STSH';
 		constexpr std::uint32_t kRecGhosts = 'GHST';
+		constexpr std::uint32_t kRecMerchants = 'MRCH';
 		constexpr std::uint32_t kVersion = 1;
 
 		void WriteIds(SKSE::SerializationInterface* a_intfc, std::uint32_t a_type, const std::vector<RE::FormID>& a_ids)
@@ -544,6 +634,14 @@ namespace Cards
 		{
 			WriteIds(a_intfc, kRecPosters, g_posters);
 			WriteIds(a_intfc, kRecGhosts, Placement::GhostIds());
+			if (a_intfc->OpenRecord(kRecMerchants, kVersion)) {
+				const auto n = static_cast<std::uint32_t>(g_stocked.size());
+				a_intfc->WriteRecordData(n);
+				for (const auto& [id, period] : g_stocked) {
+					a_intfc->WriteRecordData(id);
+					a_intfc->WriteRecordData(period);
+				}
+			}
 			if (a_intfc->OpenRecord(kRecStash, kVersion)) {
 				const auto n = static_cast<std::uint32_t>(g_stash.size());
 				a_intfc->WriteRecordData(n);
@@ -573,6 +671,21 @@ namespace Cards
 					break;
 				case kRecGhosts:
 					g_staleGhosts = ReadIds(a_intfc);
+					break;
+				case kRecMerchants:
+					{
+						std::uint32_t n = 0;
+						a_intfc->ReadRecordData(n);
+						for (std::uint32_t k = 0; k < n; ++k) {
+							RE::FormID    id = 0, resolved = 0;
+							std::uint32_t period = 0;
+							a_intfc->ReadRecordData(id);
+							a_intfc->ReadRecordData(period);
+							if (a_intfc->ResolveFormID(id, resolved)) {
+								g_stocked[resolved] = period;
+							}
+						}
+					}
 					break;
 				case kRecStash:
 					{
@@ -606,6 +719,7 @@ namespace Cards
 			g_stash.clear();
 			g_views.clear();
 			g_staleGhosts.clear();
+			g_stocked.clear();
 			{
 				std::lock_guard lk(g_evMtx);
 				g_newCards.clear();
@@ -686,10 +800,22 @@ namespace Cards
 		if (cfg.drawers) {
 			added += Inject(kDrawerList, g_drawerList) ? 1 : 0;
 		}
-		if (cfg.vendors) {
-			added += Inject(kVendorList, g_vendorList) ? 1 : 0;
-		}
 		spdlog::info("Cards added to {} vanilla leveled lists", added);
+		if (auto* dh = RE::TESDataHandler::GetSingleton()) {
+			for (auto* c : dh->GetFormArray<RE::TESObjectCONT>()) {
+				if (!c) {
+					continue;
+				}
+				for (std::uint32_t i = 0; i < c->numContainerObjects; ++i) {
+					const auto* e = c->containerObjects[i];
+					if (e && e->obj && e->obj->GetFormID() == kVendorList) {
+						g_merchantChests.insert(c->GetFormID());
+						break;
+					}
+				}
+			}
+		}
+		spdlog::info("{} general goods merchant chests will carry {} cards", g_merchantChests.size(), cfg.vendors ? cfg.merchantCards : 0);
 
 		REL::Relocation<std::uintptr_t> vt{ RE::VTABLE_TESObjectCONT[0] };
 		g_origActivate = reinterpret_cast<ActivateFn>(vt.write_vfunc(0x37, reinterpret_cast<std::uintptr_t>(&ActivateHook)));

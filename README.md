@@ -8,8 +8,9 @@ Skyrim Special Edition 1.5.97 and Anniversary Edition 1.6.x (Steam and GOG), one
 ## In game
 
 - **Finding cards.** Cards turn up on bandit, draugr, falmer, Forsworn, warlock, vampire and Thalmor
-  corpses and chests, in citizens' pockets, in drawers and end tables, and in general goods merchants'
-  stock. 60 common, 30 uncommon, 10 rare. Read a card from your inventory to see its art.
+  corpses and chests, in citizens' pockets, and in drawers and end tables. Every general goods merchant
+  (Belethor, Lucan, Sayma, Birna, the Khajiit caravans...) always has 3 different cards you don't own yet,
+  a fresh set every 2 days. 60 common, 30 uncommon, 10 rare. Read a card from your inventory to see its art.
 - **No duplicates.** A copy of a card you already have (in your inventory, on a poster, or rolled up with a
   poster) never stays in your inventory, and cards you own stop appearing in loot.
 - **The poster.** Craft a *Card Poster (rolled)* at a tanning rack (1 Leather, 2 Leather Strips).

@@ -50,11 +50,12 @@ namespace Config
 		g_v.loot = ReadInt("Loot", "bLoot", 1) != 0;
 		g_v.drawers = ReadInt("Loot", "bDrawers", 1) != 0;
 		g_v.vendors = ReadInt("Loot", "bMerchants", 1) != 0;
+		g_v.merchantCards = std::clamp(ReadInt("Loot", "iMerchantCards", d.merchantCards), 0, 10);
 		g_v.noDuplicates = ReadInt("General", "bNoDuplicates", 1) != 0;
 		g_v.reach = std::clamp(ReadFloat("Poster", "fReach", d.reach), 100.0f, 2000.0f);
 		g_v.logDebug = ReadInt("General", "bDebugLog", 0) != 0;
-		spdlog::info("Config: loot {} {}%, drawers {} {}%, merchants {} {}%, no duplicates {}, reach {:.0f}", g_v.loot, g_v.lootChance,
-			g_v.drawers, g_v.drawerChance, g_v.vendors, g_v.vendorChance, g_v.noDuplicates, g_v.reach);
+		spdlog::info("Config: loot {} {}%, drawers {} {}%, merchants {} {} cards, no duplicates {}, reach {:.0f}", g_v.loot, g_v.lootChance,
+			g_v.drawers, g_v.drawerChance, g_v.vendors, g_v.merchantCards, g_v.noDuplicates, g_v.reach);
 	}
 
 	const Values& Get() { return g_v; }
