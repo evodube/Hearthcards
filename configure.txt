@@ -1,0 +1,95 @@
+-- Running vcpkg install
+A suitable version of cmake was not found (required v4.4.0).
+Downloading https://github.com/Kitware/CMake/releases/download/v4.4.0/cmake-4.4.0-windows-x86_64.zip -> cmake-4.4.0-windows-x86_64.zip
+Successfully downloaded cmake-4.4.0-windows-x86_64.zip
+Extracting cmake...
+Detecting compiler hash for triplet x64-windows...
+Compiler found: C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe
+Detecting compiler hash for triplet x64-windows-static-md...
+Compiler found: C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe
+The following packages will be built and installed:
+    fmt:x64-windows-static-md@10.2.1
+    rapidcsv:x64-windows-static-md@8.64
+    spdlog:x64-windows-static-md@1.12.0
+    stb:x64-windows-static-md@2023-04-11#1
+  * vcpkg-cmake:x64-windows@2023-05-04
+  * vcpkg-cmake-config:x64-windows@2022-02-06#1
+Additional packages (*) will be modified to complete this operation.
+Restored 6 package(s) from D:\a\Hearthcards\Hearthcards\vcpkg-bincache in 236 ms. Use --debug to see more details.
+Installing 1/6 vcpkg-cmake-config:x64-windows@2022-02-06#1...
+vcpkg-cmake-config:x64-windows@2022-02-06#1 package ABI: 24d3b411de62e0130b6b0fabd2ba90664aa0769c8a8b0e491a4c03b3c7b6fd16
+Elapsed time to handle vcpkg-cmake-config:x64-windows: 2.28 ms
+Installing 2/6 vcpkg-cmake:x64-windows@2023-05-04...
+vcpkg-cmake:x64-windows@2023-05-04 package ABI: 25f19225a7cacf7dfd0693b520ee64a91bb8d8ef0cef3711065cadff46d800d7
+Elapsed time to handle vcpkg-cmake:x64-windows: 2.68 ms
+Installing 3/6 fmt:x64-windows-static-md@10.2.1...
+fmt:x64-windows-static-md@10.2.1 package ABI: dd3b90b5f178dc564fd2a4c75fd13035eeb95cc8a310cc2d72ea817b2c738e17
+Elapsed time to handle fmt:x64-windows-static-md: 5.21 ms
+Installing 4/6 rapidcsv:x64-windows-static-md@8.64...
+rapidcsv:x64-windows-static-md@8.64 package ABI: c00b4f350f627ca5aa43536a0f775b7c6a3e0f998ec4137ed8e99f3b73291263
+Elapsed time to handle rapidcsv:x64-windows-static-md: 2.09 ms
+Installing 5/6 spdlog:x64-windows-static-md@1.12.0...
+spdlog:x64-windows-static-md@1.12.0 package ABI: dbb59a7f7d640137e43380eab7e1298865e44bfd20d0f3b989e374393301a84b
+Elapsed time to handle spdlog:x64-windows-static-md: 15.1 ms
+Installing 6/6 stb:x64-windows-static-md@2023-04-11#1...
+stb:x64-windows-static-md@2023-04-11#1 package ABI: 01e29e05b36a1b686b8750d37da799a4306ce458fdaa505ee84d2ae8ac14e668
+Elapsed time to handle stb:x64-windows-static-md: 5.53 ms
+Installed contents are licensed to you by owners. Microsoft is not responsible for, nor does it grant any licenses to, third-party packages.
+Packages installed in this vcpkg installation declare the following licenses:
+(MIT OR CC-PDDC)
+BSD-3-Clause
+MIT
+The package fmt provides CMake targets:
+
+    find_package(fmt CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE fmt::fmt)
+
+    # Or use the header-only version
+    find_package(fmt CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE fmt::fmt-header-only)
+
+rapidcsv is header-only and can be used from CMake via:
+
+  find_path(RAPIDCSV_INCLUDE_DIRS "rapidcsv.h")
+  target_include_directories(main PRIVATE ${RAPIDCSV_INCLUDE_DIRS})
+
+The package spdlog provides CMake targets:
+
+    find_package(spdlog CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE spdlog::spdlog)
+
+    # Or use the header-only version
+    find_package(spdlog CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE spdlog::spdlog_header_only)
+
+The package stb provides CMake targets:
+
+    find_package(Stb REQUIRED)
+    target_include_directories(main PRIVATE ${Stb_INCLUDE_DIR})
+All requested installations completed successfully in: 34.4 ms
+-- Running vcpkg install - done
+-- Selecting Windows SDK version 10.0.26100.0 to target Windows 10.0.20348.
+-- The CXX compiler identification is MSVC 19.44.35229.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+Options:
+	Enable Xbyak: OFF
+	Enable Skyrim SE: ON
+	Enable Skyrim AE: ON
+	Enable Skyrim VR: OFF
+	Build Tests: OFF
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed
+-- Looking for pthread_create in pthreads
+-- Looking for pthread_create in pthreads - not found
+-- Looking for pthread_create in pthread
+-- Looking for pthread_create in pthread - not found
+-- Found Threads: TRUE
+
+
+-- Configuring done (26.3s)
+-- Generating done (0.3s)
+-- Build files have been written to: D:/a/Hearthcards/Hearthcards/build
