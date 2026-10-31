@@ -416,7 +416,10 @@ namespace Cards
 
 			void Run(Message a_msg) override
 			{
-				const int button = static_cast<int>(a_msg) - 4;
+				// The game reports button N either as N or as N + 4 depending on the message type: take both.
+				const int raw = static_cast<int>(a_msg);
+				const int button = raw >= 4 ? raw - 4 : raw;
+				spdlog::info("Poster menu: button {} (raw {})", button, raw);
 				if (_fn) {
 					auto fn = _fn;
 					SKSE::GetTaskInterface()->AddTask([fn, button] { fn(button); });
@@ -432,11 +435,13 @@ namespace Cards
 			auto* factory = RE::MessageDataFactoryManager::GetSingleton();
 			auto* strings = RE::InterfaceStrings::GetSingleton();
 			if (!factory || !strings) {
+				spdlog::error("Poster menu: no message box factory");
 				return false;
 			}
 			const auto* creator = factory->GetCreator<RE::MessageBoxData>(strings->messageBoxData);
 			auto*       box = creator ? creator->Create() : nullptr;
 			if (!box) {
+				spdlog::error("Poster menu: could not create a message box");
 				return false;
 			}
 			box->callback = RE::make_smart<MenuCallback>(std::move(a_fn));
@@ -445,6 +450,7 @@ namespace Cards
 				box->buttonText.push_back(RE::BSString(b.c_str()));
 			}
 			box->QueueMessage();
+			spdlog::info("Poster menu shown");
 			return true;
 		}
 
@@ -458,8 +464,9 @@ namespace Cards
 				return;
 			}
 			g_passThrough = true;
-			ref->ActivateRef(player, 0, nullptr, 0, false);
+			const bool ok = ref->ActivateRef(player, 0, nullptr, 0, false);
 			g_passThrough = false;
+			spdlog::info("Poster {:08X}: opened its inventory ({})", ref->GetFormID(), ok);
 		}
 
 		void TakeDown(RE::ObjectRefHandle a_poster)
@@ -467,8 +474,10 @@ namespace Cards
 			auto  ref = a_poster.get();
 			auto* player = RE::PlayerCharacter::GetSingleton();
 			if (!ref || !player || !IsPoster(ref.get())) {
+				spdlog::warn("Take down: poster not found");
 				return;
 			}
+			spdlog::info("Poster {:08X}: taken down", ref->GetFormID());
 			const auto counts = CardCounts(ref.get());
 			CardSet    held;
 			for (int i = 0; i < kCards; ++i) {
@@ -531,6 +540,7 @@ namespace Cards
 			RE::TESBoundObject* a_object, std::int32_t a_count)
 		{
 			if (g_ready && a_self == g_poster && !g_passThrough && a_target && a_activator == RE::PlayerCharacter::GetSingleton()) {
+				spdlog::info("Poster {:08X} activated", a_target->GetFormID());
 				if (!Placement::Active()) {
 					ShowPosterMenu(a_target->GetHandle());
 				}
