@@ -14,8 +14,9 @@ Skyrim Special Edition 1.5.97 and Anniversary Edition 1.6.x (Steam and GOG), one
 - **No duplicates.** A copy of a card you already have (in your inventory, on a poster, or rolled up with a
   poster) never stays in your inventory, and cards you own stop appearing in loot.
 - **The poster.** Craft a *Card Poster (rolled)* at a tanning rack (1 Leather, 2 Leather Strips).
-  Use it from your inventory and a see-through poster follows your crosshair, snapping flat onto walls:
-  green fits, red doesn't. **Activate** hangs it; **right-click** or **Esc** cancels.
+  Use it from your inventory and a see-through poster follows your crosshair onto any wall (like
+  Hearthframe's frames). **Left-click** or **Activate** hangs it, the **mouse wheel** changes its size,
+  **Up/Down** push it into / out from the wall, **right-click** or **Esc** cancels.
 - **Using the poster.** Activate the hung poster for a menu:
   - **Pin Cards** opens the poster's inventory. Put cards in and each one appears in its own numbered spot;
     take one out and its spot is empty again. Only cards can go in.

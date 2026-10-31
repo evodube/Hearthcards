@@ -17,16 +17,26 @@
 #include "Cards.h"
 #include "Config.h"
 
+// Hanging works like Hearthframe's picture frames: the preview sits where the crosshair meets any
+// roughly vertical surface - no checks for corners or room around it - and you can push it into or
+// out from the wall and change its size while aiming.
 namespace Placement
 {
 	namespace
 	{
 		using UEFlag = RE::UserEvents::USER_EVENT_FLAG;
+		using MouseKey = RE::BSWin32MouseDevice::Key;
 
-		constexpr float kHalfW = 40.0f;     // poster half width (game units, matches tools/make_assets.py)
-		constexpr float kHalfH = 53.0f;     // poster half height
-		constexpr float kWallGap = 0.6f;    // poster centre in front of the wall (half thickness + a hair)
-		constexpr float kMaxWallZ = 0.35f;  // |normal.z| above this is a floor/ceiling, not a wall
+		constexpr std::uint32_t kDIK_Escape = 0x01;
+		constexpr std::uint32_t kDIK_Up = 0xC8;
+		constexpr std::uint32_t kDIK_Down = 0xD0;
+
+		constexpr float kHalfThickness = 0.5f;  // the poster's origin is the middle of its 1-unit board
+		constexpr float kDefaultOffset = 0.3f;  // gap between the wall and the poster's back
+		constexpr float kMinOffset = -40.0f;    // wall collision often sits well in front of the visible wall
+		constexpr float kMaxOffset = 12.0f;
+		constexpr float kMinScale = 0.3f;
+		constexpr float kMaxScale = 2.0f;
 
 		enum class Mode
 		{
@@ -40,14 +50,23 @@ namespace Placement
 		RE::ObjectRefHandle g_wantMove;
 		RE::ObjectRefHandle g_target;  // the poster being moved
 		RE::ObjectRefHandle g_ghost;
-		RE::ObjectRefHandle g_ghostRed;
+		RE::ObjectRefHandle g_ghostRed;  // older saves may still hold one; never shown now
 		bool                g_valid = false;
+		bool                g_ghostShown = false;
+		bool                g_ghostReady = false;
 		RE::NiPoint3        g_pos;
 		float               g_yaw = 0.0f;
+		float               g_offset = kDefaultOffset;
+		float               g_scale = 1.0f;
+		const char*         g_whyNot = nullptr;
+		RE::TESObjectCELL*  g_cell = nullptr;
+		RE::TESWorldSpace*  g_world = nullptr;
 		std::uint32_t       g_disabledControls = 0;
 		int                 g_frames = 0;
 		std::atomic<bool>   g_place{ false };
 		std::atomic<bool>   g_cancel{ false };
+		std::atomic<int>    g_offsetSteps{ 0 };
+		std::atomic<int>    g_scaleSteps{ 0 };
 		std::atomic<bool>   g_listening{ false };
 
 		void Notify(const char* a_text) { RE::DebugNotification(a_text); }
@@ -71,9 +90,34 @@ namespace Placement
 					const auto  dev = b->GetDevice();
 					const auto  id = b->GetIDCode();
 					const auto& name = b->QUserEvent();
-					if ((dev == RE::INPUT_DEVICE::kMouse && id == 1) || (dev == RE::INPUT_DEVICE::kKeyboard && id == 0x01) ||
-						(ue && (name == ue->tweenMenu || name == ue->journal))) {
-						g_cancel = true;  // right mouse, Esc, Tab / gamepad B
+					if (dev == RE::INPUT_DEVICE::kMouse) {
+						if (id == MouseKey::kLeftButton) {
+							g_place = true;
+						} else if (id == MouseKey::kRightButton) {
+							g_cancel = true;
+						} else if (id == MouseKey::kWheelUp) {
+							++g_scaleSteps;
+						} else if (id == MouseKey::kWheelDown) {
+							--g_scaleSteps;
+						}
+						continue;
+					}
+					if (dev == RE::INPUT_DEVICE::kKeyboard) {
+						if (id == kDIK_Escape) {
+							g_cancel = true;
+							continue;
+						}
+						if (id == kDIK_Up) {
+							--g_offsetSteps;  // towards / into the wall
+							continue;
+						}
+						if (id == kDIK_Down) {
+							++g_offsetSteps;  // away from the wall
+							continue;
+						}
+					}
+					if (ue && (name == ue->tweenMenu || name == ue->journal)) {
+						g_cancel = true;  // Tab / gamepad B
 					} else if (ue && (name == ue->activate ||
 										 (cm && (dev == RE::INPUT_DEVICE::kKeyboard || dev == RE::INPUT_DEVICE::kGamepad) &&
 											 id == cm->GetMappedKey(ue->activate.c_str(), dev)))) {
@@ -85,155 +129,140 @@ namespace Placement
 		};
 		InputSink g_inputSink;
 
-		// ------------------------------------------------------------------ raycasts
+		// ------------------------------------------------------------------ aiming (same ray as Hearthframe)
 		struct Hit
 		{
-			RE::NiPoint3 point;
-			RE::NiPoint3 normal;
-			float        dist = 0.0f;
+			RE::NiPoint3       pos;
+			RE::NiPoint3       normal;
+			RE::TESObjectREFR* ref = nullptr;
 		};
 
-		bool Raycast(const RE::NiPoint3& a_from, const RE::NiPoint3& a_to, Hit& a_out, RE::TESObjectREFR* a_ignore)
+		std::optional<Hit> RaycastFromCamera(float a_reach, RE::TESObjectREFR* a_ignore)
 		{
 			auto* player = RE::PlayerCharacter::GetSingleton();
+			auto* camera = RE::PlayerCamera::GetSingleton();
 			auto* cell = player ? player->GetParentCell() : nullptr;
 			auto* world = cell ? cell->GetbhkWorld() : nullptr;
-			if (!world) {
-				return false;
+			if (!world || !camera || !camera->cameraRoot) {
+				return std::nullopt;
 			}
+			const auto&  xf = camera->cameraRoot->world;
+			RE::NiPoint3 from = xf.translate;
+			RE::NiPoint3 dir{ xf.rotate.entry[0][1], xf.rotate.entry[1][1], xf.rotate.entry[2][1] };
+			if (dir.Unitize() < 1e-4f) {
+				return std::nullopt;
+			}
+			// In third person the camera sits behind the player; reach is measured from the player.
+			const RE::NiPoint3 p = player->GetPosition();
+			const float camToPlayer = std::sqrt((p.x - from.x) * (p.x - from.x) + (p.y - from.y) * (p.y - from.y));
+			const RE::NiPoint3 to = from + dir * (a_reach + camToPlayer);
+
 			const float   s = RE::bhkWorld::GetWorldScale();
 			std::uint32_t info = 0;
 			player->GetCollisionFilterInfo(info);
 			const std::uint32_t filter = (info & 0xFFFF0000) | static_cast<std::uint32_t>(RE::COL_LAYER::kLOS);
-
-			RE::NiPoint3 dir = a_to - a_from;
-			const float  len = dir.Unitize();
-			RE::NiPoint3 from = a_from;
 			for (int tries = 0; tries < 4; ++tries) {
 				RE::bhkPickData pick{};
 				pick.rayInput.from = RE::hkVector4(from.x * s, from.y * s, from.z * s, 0.0f);
-				pick.rayInput.to = RE::hkVector4(a_to.x * s, a_to.y * s, a_to.z * s, 0.0f);
+				pick.rayInput.to = RE::hkVector4(to.x * s, to.y * s, to.z * s, 0.0f);
 				pick.rayInput.filterInfo = filter;
 				world->PickObject(pick);
 				if (!pick.rayOutput.HasHit()) {
-					return false;
+					return std::nullopt;
 				}
-				const RE::NiPoint3 p = from + (a_to - from) * pick.rayOutput.hitFraction;
-				if (a_ignore && pick.rayOutput.rootCollidable) {
-					if (RE::TESHavokUtilities::FindCollidableRef(*pick.rayOutput.rootCollidable) == a_ignore) {
-						from = p + dir * 2.0f;  // through the poster being moved
-						if (a_from.GetDistance(from) >= len) {
-							return false;
-						}
-						continue;
-					}
+				Hit out;
+				out.pos = from + (to - from) * pick.rayOutput.hitFraction;
+				if (pick.rayOutput.rootCollidable) {
+					out.ref = RE::TESHavokUtilities::FindCollidableRef(*pick.rayOutput.rootCollidable);
 				}
-				float n[4];
-				_mm_storeu_ps(n, pick.rayOutput.normal.quad);
-				a_out.point = p;
-				a_out.normal = { n[0], n[1], n[2] };
-				a_out.normal.Unitize();
-				a_out.dist = a_from.GetDistance(p);
-				return true;
+				if (a_ignore && out.ref == a_ignore) {  // the poster being moved: look through it
+					from = out.pos + dir * 2.0f;
+					continue;
+				}
+				alignas(16) float n[4];
+				_mm_store_ps(n, pick.rayOutput.normal.quad);
+				out.normal = { n[0], n[1], n[2] };
+				return out;
 			}
-			return false;
+			return std::nullopt;
 		}
 
-		// The whole poster has wall behind it and nothing (floor, ceiling, shelf, corner) in the way.
-		bool Fits(const RE::NiPoint3& a_c, const RE::NiPoint3& a_n, RE::TESObjectREFR* a_ignore)
+		// Where the poster would hang right now; g_whyNot says why not.
+		bool ComputePose()
 		{
-			RE::NiPoint3 right{ a_n.y, -a_n.x, 0.0f };
-			if (right.Unitize() < 0.01f) {
+			auto       target = g_target.get();
+			const auto hit = RaycastFromCamera(Config::Get().reach, target.get());
+			if (!hit) {
+				g_whyNot = "Nothing in reach - aim at a wall closer to you.";
 				return false;
 			}
-			const RE::NiPoint3 up{ 0.0f, 0.0f, 1.0f };
-			const float        hw = kHalfW * 0.92f;
-			const float        hh = kHalfH * 0.92f;
-			Hit                h;
-			for (const float sx : { -1.0f, 1.0f }) {
-				for (const float sy : { -1.0f, 1.0f }) {
-					const RE::NiPoint3 q = a_c + right * (sx * hw) + up * (sy * hh);
-					if (!Raycast(q + a_n * 10.0f, q - a_n * 10.0f, h, a_ignore) || std::abs(h.dist - 10.0f) > 4.0f ||
-						h.normal * a_n < 0.85f) {
-						return false;
-					}
-				}
+			if (hit->ref && hit->ref != target.get() && hit->ref->Is(RE::FormType::ActorCharacter)) {
+				g_whyNot = "You can't hang a poster on someone.";
+				return false;
 			}
-			const RE::NiPoint3 o = a_c + a_n * 3.0f;
-			for (const auto& d : { right * kHalfW, right * -kHalfW, up * kHalfH, up * -kHalfH }) {
-				if (Raycast(o, o + d, h, a_ignore)) {
-					return false;
-				}
+			const auto& nrm = hit->normal;
+			const float nlen = std::sqrt(nrm.x * nrm.x + nrm.y * nrm.y);
+			if (std::fabs(nrm.z) > 0.6f || nlen < 0.3f) {
+				g_whyNot = "That's not a wall - aim at a vertical surface.";
+				return false;
 			}
+			const float nx = nrm.x / nlen;
+			const float ny = nrm.y / nlen;
+			const float out = kHalfThickness * g_scale + g_offset;
+			g_pos = { hit->pos.x + nx * out, hit->pos.y + ny * out, hit->pos.z };
+			g_yaw = std::atan2(nx, ny);  // local +Y (the poster's front) faces away from the wall
 			return true;
 		}
 
-		RE::NiPoint3 CameraForward(const RE::NiCamera* a_cam)
-		{
-			// a NiCamera looks down its local X axis
-			const auto&  r = a_cam->world.rotate;
-			RE::NiPoint3 f{ r.entry[0][0], r.entry[1][0], r.entry[2][0] };
-			f.Unitize();
-			return f;
-		}
-
-		void MoveRef(RE::TESObjectREFR* a_ref, const RE::NiPoint3& a_pos, float a_yaw)
+		void SetRefScale(RE::TESObjectREFR* a_ref, float a_scale)
 		{
 			if (!a_ref) {
 				return;
 			}
-			a_ref->data.angle = { 0.0f, 0.0f, a_yaw };
-			a_ref->SetPosition(a_pos);
-		}
-
-		void ShowGhost(RE::TESObjectREFR* a_ref, bool a_visible)
-		{
-			if (auto* root = a_ref ? a_ref->Get3D() : nullptr) {
-				if (root->GetAppCulled() == a_visible) {
-					root->SetAppCulled(!a_visible);
-				}
+			a_ref->GetReferenceRuntimeData().refScale = static_cast<std::uint16_t>(std::lround(a_scale * 100.0f));
+			a_ref->AddChange(1u << 4);  // CHANGE_REFR_SCALE - kept in the save
+			if (auto* root = a_ref->Get3D()) {
+				root->local.scale = a_scale;
+				RE::NiUpdateData ud{};
+				root->Update(ud);
 			}
 		}
 
-		void Aim()
+		void ShowGhost(bool a_visible)
 		{
-			auto* player = RE::PlayerCharacter::GetSingleton();
-			auto* cam = RE::Main::WorldRootCamera();
-			if (!player || !cam) {
+			auto ghost = g_ghost.get();
+			auto* root = ghost ? ghost->Get3D() : nullptr;
+			if (root && g_ghostShown != a_visible) {
+				root->SetAppCulled(!a_visible);
+				g_ghostShown = a_visible;
+			}
+		}
+
+		void UpdateGhost()
+		{
+			auto  ghost = g_ghost.get();
+			auto* root = ghost ? ghost->Get3D() : nullptr;
+			if (!root) {
+				return;  // still loading
+			}
+			if (!g_ghostReady) {
+				root->SetCollisionLayer(RE::COL_LAYER::kNonCollidable);  // the aiming ray must not hit the preview
+				root->SetAppCulled(true);
+				g_ghostShown = false;
+				g_ghostReady = true;
+			}
+			if (!g_valid) {
+				ShowGhost(false);
 				return;
 			}
-			auto               target = g_target.get();
-			const RE::NiPoint3 from = cam->world.translate;
-			const RE::NiPoint3 dir = CameraForward(cam);
-			const float        range = Config::Get().reach + from.GetDistance(player->GetPosition());
-
-			Hit          h;
-			RE::NiPoint3 n;
-			g_valid = false;
-			if (Raycast(from, from + dir * range, h, target.get())) {
-				if (std::abs(h.normal.z) < kMaxWallZ) {
-					n = { h.normal.x, h.normal.y, 0.0f };
-					n.Unitize();
-					g_pos = h.point + n * kWallGap;
-					g_valid = Fits(h.point, n, target.get());
-				} else {  // floor or ceiling: show it standing there, facing you
-					n = { -dir.x, -dir.y, 0.0f };
-					n.Unitize();
-					g_pos = h.point + RE::NiPoint3{ 0.0f, 0.0f, kHalfH };
-				}
-			} else {
-				n = { -dir.x, -dir.y, 0.0f };
-				n.Unitize();
-				g_pos = from + dir * (std::min)(range, 250.0f);
+			// Same as Papyrus SetPosition/SetAngle: update the reference, let the game move its 3D.
+			ghost->data.location = g_pos;
+			ghost->data.angle = { 0.0f, 0.0f, g_yaw };
+			ghost->Update3DPosition(true);
+			if (std::fabs(root->local.scale - g_scale) > 0.001f) {
+				SetRefScale(ghost.get(), g_scale);
 			}
-			g_yaw = std::atan2(n.x, n.y);  // the poster's front (+Y) faces away from the wall
-
-			auto green = g_ghost.get();
-			auto red = g_ghostRed.get();
-			MoveRef(green.get(), g_pos, g_yaw);
-			MoveRef(red.get(), g_pos, g_yaw);
-			ShowGhost(green.get(), g_valid);
-			ShowGhost(red.get(), !g_valid);
+			ShowGhost(true);
 		}
 
 		// ------------------------------------------------------------------ start / end
@@ -245,7 +274,7 @@ namespace Placement
 			}
 			if (!a_enable) {
 				g_disabledControls = 0;
-				for (const auto f : { UEFlag::kActivate, UEFlag::kMenu, UEFlag::kFighting, UEFlag::kMainFour }) {
+				for (const auto f : { UEFlag::kActivate, UEFlag::kMenu, UEFlag::kFighting, UEFlag::kMainFour, UEFlag::kWheelZoom }) {
 					if (cm->enabledControls.all(f)) {
 						g_disabledControls |= static_cast<std::uint32_t>(f);
 					}
@@ -306,59 +335,71 @@ namespace Placement
 			if (a_mode == Mode::kMove && !target) {
 				return;
 			}
-			auto green = player->PlaceObjectAtMe(Cards::GhostForm(false), false);
-			auto red = player->PlaceObjectAtMe(Cards::GhostForm(true), false);
-			if (!green || !red) {
+			const float h = player->GetAngleZ();
+			const RE::NiPoint3 p = player->GetPosition();
+			const RE::NiPoint3 at{ p.x + std::sin(h) * 150.0f, p.y + std::cos(h) * 150.0f, p.z + 100.0f };
+			auto ghost = RE::TESDataHandler::GetSingleton()->CreateReferenceAtLocation(Cards::GhostForm(false), at, { 0.0f, 0.0f, h },
+				player->GetParentCell(), player->GetWorldspace(), nullptr, nullptr, RE::ObjectRefHandle(), false, true);
+			if (!ghost.get()) {
 				spdlog::error("Placement: could not place the preview");
-				if (green) {
-					green->Disable();
-					green->SetDelete(true);
-				}
-				if (red) {
-					red->Disable();
-					red->SetDelete(true);
-				}
 				return;
 			}
-			g_ghost = green->GetHandle();
-			g_ghostRed = red->GetHandle();
+			g_ghost = ghost;
+			g_ghostReady = false;
+			g_ghostShown = false;
 			g_target = a_target;
+			g_scale = 1.0f;
+			g_offset = kDefaultOffset;
 			if (a_mode == Mode::kMove) {
+				g_scale = std::clamp(target->GetReferenceRuntimeData().refScale / 100.0f, kMinScale, kMaxScale);
 				Cards::SetPosterHidden(target.get(), true);
 			}
+			g_cell = player->GetParentCell();
+			g_world = player->GetWorldspace();
 			g_mode = a_mode;
 			g_frames = 0;
 			g_valid = false;
 			g_place = false;
 			g_cancel = false;
+			g_offsetSteps = 0;
+			g_scaleSteps = 0;
 			g_listening = true;
 			SetControls(false);
-			Notify("Aim at a wall. Activate hangs the poster; right-click or Esc cancels.");
+			Notify("Aim at a wall: left-click or Activate hangs the poster. Wheel: size, Up/Down: distance from the wall. Right-click/Esc cancels.");
 		}
 
 		void Commit()
 		{
 			auto* player = RE::PlayerCharacter::GetSingleton();
+			const RE::NiPoint3 angle{ 0.0f, 0.0f, g_yaw };
 			if (g_mode == Mode::kNew) {
 				if (RolledCount() < 1) {
 					End();
 					return;
 				}
-				auto ref = player->PlaceObjectAtMe(Cards::PosterForm(), true);
+				auto handle = RE::TESDataHandler::GetSingleton()->CreateReferenceAtLocation(Cards::PosterForm(), g_pos, angle,
+					player->GetParentCell(), player->GetWorldspace(), nullptr, nullptr, RE::ObjectRefHandle(), true, true);
+				auto ref = handle.get();
 				if (!ref) {
 					Notify("The poster could not be hung here.");
+					spdlog::error("CreateReferenceAtLocation failed for the poster");
 					return;
 				}
-				MoveRef(ref.get(), g_pos, g_yaw);
+				if (std::fabs(g_scale - 1.0f) > 0.001f) {
+					SetRefScale(ref.get(), g_scale);
+				}
 				player->RemoveItem(Cards::RolledForm(), 1, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
 				Cards::OnPosterPlaced(ref.get());
-				spdlog::info("Poster {:08X} hung at ({:.0f}, {:.0f}, {:.0f})", ref->GetFormID(), g_pos.x, g_pos.y, g_pos.z);
+				spdlog::info("Poster {:08X} hung at ({:.0f}, {:.0f}, {:.0f}), {:.0f}%", ref->GetFormID(), g_pos.x, g_pos.y, g_pos.z, g_scale * 100.0f);
 			} else if (auto target = g_target.get()) {
-				MoveRef(target.get(), g_pos, g_yaw);
+				target->data.angle = angle;
+				target->SetPosition(g_pos);
+				SetRefScale(target.get(), g_scale);
 				Cards::SetPosterHidden(target.get(), false);
-				spdlog::info("Poster {:08X} moved to ({:.0f}, {:.0f}, {:.0f})", target->GetFormID(), g_pos.x, g_pos.y, g_pos.z);
+				spdlog::info("Poster {:08X} moved to ({:.0f}, {:.0f}, {:.0f}), {:.0f}%", target->GetFormID(), g_pos.x, g_pos.y, g_pos.z, g_scale * 100.0f);
 			}
 			End();
+			Notify("Poster hung.");
 		}
 	}
 
@@ -438,9 +479,20 @@ namespace Placement
 			Cancel();
 			return;
 		}
+		// went through a door (interior <-> exterior, or another worldspace)
+		if (auto* player = RE::PlayerCharacter::GetSingleton()) {
+			auto* cell = player->GetParentCell();
+			if (cell && cell != g_cell && (cell->IsInteriorCell() || (g_cell && g_cell->IsInteriorCell()) || player->GetWorldspace() != g_world)) {
+				Cancel();
+				Notify("Hanging canceled - you left the area.");
+				return;
+			}
+		}
 		++g_frames;
 		bool place = g_place.exchange(false);
 		bool cancel = g_cancel.exchange(false);
+		const int offsetSteps = g_offsetSteps.exchange(0);
+		const int scaleSteps = g_scaleSteps.exchange(0);
 		if (g_frames < 10) {  // the click that started placement
 			place = cancel = false;
 		}
@@ -449,12 +501,22 @@ namespace Placement
 			Notify("Poster placement canceled.");
 			return;
 		}
-		Aim();
+		if (offsetSteps) {
+			g_offset = std::clamp(g_offset + offsetSteps * 1.0f, kMinOffset, kMaxOffset);
+			RE::DebugNotification(fmt::format("Distance from wall: {:+.0f}", g_offset - kDefaultOffset).c_str());
+		}
+		if (scaleSteps) {
+			g_scale = std::clamp(g_scale + scaleSteps * 0.05f, kMinScale, kMaxScale);
+			RE::DebugNotification(fmt::format("Poster size: {:.0f}%", g_scale * 100.0f).c_str());
+		}
+		g_whyNot = nullptr;
+		g_valid = ComputePose();
+		UpdateGhost();
 		if (place) {
 			if (g_valid) {
 				Commit();
 			} else {
-				Notify("The poster needs a clear, flat wall within reach.");
+				Notify(g_whyNot ? g_whyNot : "Can't hang the poster here.");
 			}
 		}
 	}
