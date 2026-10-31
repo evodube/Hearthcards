@@ -199,9 +199,10 @@ FLAT_N = TEX + "Flat_n.dds"
 def card_meshes(n, z=0.05):
     hw, hh = CARD_W / 2, CARD_H / 2
     front = nif.Mesh(f"Card{n:03}", TEX + f"Cards\\Card{n:03}.dds", FLAT_N)
-    front.quad((-hw, -hh, z), (hw, -hh, z), (hw, hh, z), (-hw, hh, z))
+    # the card's top is at -Y: the inventory's view (BSInvMarker 90 degrees about X) then shows it upright
+    front.quad((hw, hh, z), (-hw, hh, z), (-hw, -hh, z), (hw, -hh, z))
     back = nif.Mesh(f"Card{n:03}Back", TEX + "CardBack.dds", FLAT_N)
-    back.quad((hw, -hh, -z), (-hw, -hh, -z), (-hw, hh, -z), (hw, hh, -z))
+    back.quad((-hw, hh, -z), (hw, hh, -z), (hw, -hh, -z), (-hw, -hh, -z))
     return [front, back]
 
 
