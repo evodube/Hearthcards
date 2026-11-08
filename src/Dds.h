@@ -17,6 +17,13 @@
 // Picture -> DXT1 .dds conversion (from Hearthframe).
 namespace Dds
 {
+	enum class FitMode
+	{
+		kStretch,  // the whole picture, squeezed/stretched to the card shape
+		kPad,      // the whole picture, the leftover strip filled with its edge colour
+		kCrop      // the middle of the picture, filling the card
+	};
+
 	struct ReadResult
 	{
 		std::vector<std::uint8_t> bytes;
@@ -31,11 +38,11 @@ namespace Dds
 	unsigned char* DecodePicture(const std::filesystem::path& a_path, int& a_w, int& a_h, std::string& a_error, bool& a_notFound);
 	void           FreePixels(unsigned char* a_px);
 
-	// Decodes a picture (png/jpg/bmp/tga), fits it to a_aspect (width / height) - padded with its own edge
-	// colour (or transparent strips for a picture with transparency), or centre-cropped when a_crop is set -
-	// scales it to a_width x a_height, builds the full mip chain and writes a .dds: BC1 (DXT1) for opaque
-	// pictures, BC3 (DXT5) when the picture has transparency (via a temp file, so the
+	// Decodes a picture (png/jpg/bmp/tga), fits it to a_aspect (width / height) by a_mode (stretch, pad with
+	// its own edge colour - or transparent strips for a picture with transparency - or centre-crop), scales it to
+	// a_width x a_height, builds the full mip chain and writes a .dds: BC1 (DXT1) for opaque pictures, BC3 (DXT5)
+	// when the picture has transparency (via a temp file, so the
 	// game never sees half a texture). Returns false and fills a_error on failure.
 	bool ConvertPicture(const std::filesystem::path& a_source, float a_aspect, int a_width, int a_height,
-		const std::filesystem::path& a_out, std::string& a_error, bool a_crop = false);
+		const std::filesystem::path& a_out, std::string& a_error, FitMode a_mode = FitMode::kStretch);
 }

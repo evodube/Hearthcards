@@ -29,7 +29,7 @@ namespace Config
 		bool  noDuplicates = true;  // a copy of a card you already have never stays in your inventory
 		float reach = 350.0f;       // how far from you a poster can be hung (game units)
 		int   flipKey = 0x30;      // DirectInput scan code; B: turn the selected card over in the inventory
-		bool  cropArt = false;     // card pictures: false = fit whole (pad), true = crop to the card shape
+		int   artFit = 0;          // card pictures: 0 stretch to the card, 1 fit whole (pad), 2 crop
 		bool  logDebug = false;
 	};
 

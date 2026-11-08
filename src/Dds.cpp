@@ -329,7 +329,7 @@ namespace Dds
 		stbi_image_free(a_px);
 	}
 
-	bool ConvertPicture(const fs::path& a_source, float a_aspect, int a_width, int a_height, const fs::path& a_out, std::string& a_error, bool a_crop)
+	bool ConvertPicture(const fs::path& a_source, float a_aspect, int a_width, int a_height, const fs::path& a_out, std::string& a_error, FitMode a_mode)
 	{
 		Image src;
 		bool  notFound = false;
@@ -354,10 +354,13 @@ namespace Dds
 			}
 		}
 
-		if (!a_crop) {
+		float aspect = a_aspect;
+		if (a_mode == FitMode::kPad) {
 			src = PadToAspect(src, a_aspect, transparent);
+		} else if (a_mode == FitMode::kStretch) {
+			aspect = static_cast<float>(src.w) / static_cast<float>(src.h);  // keep all of it; the scale squeezes it onto the card
 		}
-		Image level = Fit(std::move(src), a_width, a_height, a_aspect);
+		Image level = Fit(std::move(src), a_width, a_height, aspect);
 		int   mips = 1;
 		for (int w = a_width, h = a_height; w > 1 || h > 1; w = (std::max)(1, w / 2), h = (std::max)(1, h / 2)) {
 			++mips;

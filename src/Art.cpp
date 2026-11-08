@@ -149,16 +149,18 @@ namespace Art
 				const auto stamp = StampOf(j.source);
 				const auto it = manifest.find(j.key);
 				std::error_code ec;
-				// the fit mode is part of the record, so changing bCropArt (or updating from a cropping version) redoes pictures;
-				// so is the converter version, so pictures made before transparency support are redone once
-				const auto tag = ToUtf8(j.source.filename()) + (Config::Get().cropArt ? "#crop" : "#fit") + "#a";  // #a: alpha-aware converter (0.8.3)
+				// the fit mode and the converter version are part of the record, so changing iArtFit (or updating
+				// from an older version) redoes pictures; #a: alpha-aware converter (0.8.3)
+				static constexpr std::array<const char*, 3> kModeTags{ "#stretch", "#fit", "#crop" };
+				const int  mode = Config::Get().artFit;
+				const auto tag = ToUtf8(j.source.filename()) + kModeTags[mode] + "#a";
 				if (it != manifest.end() && it->second.first == tag && it->second.second == stamp && fs::exists(j.target, ec)) {
 					++skipped;
 					continue;
 				}
 				std::string err;
 				const auto  t0 = std::chrono::steady_clock::now();
-				if (Dds::ConvertPicture(j.source, kCardAspect, kTexW, kTexH, j.target, err, Config::Get().cropArt)) {
+				if (Dds::ConvertPicture(j.source, kCardAspect, kTexW, kTexH, j.target, err, static_cast<Dds::FitMode>(mode))) {
 					manifest[j.key] = { tag, stamp };
 					++made;
 					spdlog::info("Card art: {} -> {} ({} ms)", ToUtf8(j.source.filename()), ToUtf8(j.target),
