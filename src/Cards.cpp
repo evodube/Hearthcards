@@ -125,7 +125,7 @@ namespace Cards
 			return n && *n ? n : fmt::format("Trading Card No. {:03}", a_i + 1);
 		}
 
-		void Notify(const std::string& a_text) { RE::DebugNotification(a_text.c_str()); }
+		void Notify(const std::string& a_text) { RE::SendHUDMessage::ShowHUDMessage(a_text.c_str()); }
 
 		// ------------------------------------------------------------------ inventories
 		std::array<int, kCards> CardCounts(RE::TESObjectREFR* a_ref)
@@ -445,7 +445,7 @@ namespace Cards
 			std::uint32_t respawnDays = 2;
 			if (auto* gs = RE::GameSettingCollection::GetSingleton()) {
 				if (auto* st = gs->GetSetting("iDaysToRespawnVendor")) {
-					respawnDays = static_cast<std::uint32_t>((std::max)(1, st->GetSInt()));
+					respawnDays = static_cast<std::uint32_t>((std::max)(1, st->GetInteger()));
 				}
 			}
 			if (today >= vendor.lastDayReset + respawnDays || vendor.lastDayReset > today) {
@@ -511,10 +511,10 @@ namespace Cards
 				_fn(std::move(a_fn)) {}
 			~MenuCallback() override = default;
 
-			void Run(Message a_msg) override
+			void Run(std::uint8_t a_button) override
 			{
-				// The game reports button N either as N or as N + 4 depending on the message type: take both.
-				const int raw = static_cast<int>(a_msg);
+				// Older game/library combinations reported button N as N + 4: take both.
+				const int raw = static_cast<int>(a_button);
 				const int button = raw >= 4 ? raw - 4 : raw;
 				spdlog::info("Poster menu: button {} (raw {})", button, raw);
 				if (_fn) {
@@ -529,26 +529,16 @@ namespace Cards
 
 		bool ShowMessageBox(const std::string& a_body, const std::vector<std::string>& a_buttons, std::function<void(int)> a_fn)
 		{
-			auto* factory = RE::MessageDataFactoryManager::GetSingleton();
-			auto* strings = RE::InterfaceStrings::GetSingleton();
-			if (!factory || !strings) {
-				spdlog::error("Poster menu: no message box factory");
-				return false;
-			}
-			const auto* creator = factory->GetCreator<RE::MessageBoxData>(strings->messageBoxData);
-			auto*       box = creator ? creator->Create() : nullptr;
-			if (!box) {
-				spdlog::error("Poster menu: could not create a message box");
-				return false;
-			}
-			box->callback = RE::make_smart<MenuCallback>(std::move(a_fn));
-			box->bodyText = a_body.c_str();
+			RE::BSString                          body(a_body.c_str());
+			RE::BSTArray<RE::BSString>            buttons;
 			for (const auto& b : a_buttons) {
-				box->buttonText.push_back(RE::BSString(b.c_str()));
+				buttons.push_back(RE::BSString(b.c_str()));
 			}
-			box->QueueMessage();
-			spdlog::info("Poster menu shown");
-			return true;
+			const RE::BSTSmartPointer<RE::IMessageBoxCallback> callback = RE::make_smart<MenuCallback>(std::move(a_fn));
+			// button offset 0: the callback gets the plain button index; warning type 4 / depth 10 as DebugMessageBox
+			const bool ok = RE::MessageBoxMenu::Create(body, callback, 0, 4, 10, buttons);
+			spdlog::info("Poster menu shown ({})", ok);
+			return ok;
 		}
 
 		bool g_passThrough = false;

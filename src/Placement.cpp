@@ -69,7 +69,7 @@ namespace Placement
 		std::atomic<int>    g_scaleSteps{ 0 };
 		std::atomic<bool>   g_listening{ false };
 
-		void Notify(const char* a_text) { RE::DebugNotification(a_text); }
+		void Notify(const char* a_text) { RE::SendHUDMessage::ShowHUDMessage(a_text); }
 
 		// ------------------------------------------------------------------ input
 		class InputSink final : public RE::BSTEventSink<RE::InputEvent*>
@@ -165,7 +165,7 @@ namespace Placement
 				RE::bhkPickData pick{};
 				pick.rayInput.from = RE::hkVector4(from.x * s, from.y * s, from.z * s, 0.0f);
 				pick.rayInput.to = RE::hkVector4(to.x * s, to.y * s, to.z * s, 0.0f);
-				pick.rayInput.filterInfo = filter;
+				pick.rayInput.filterInfo.filter = filter;
 				world->PickObject(pick);
 				if (!pick.rayOutput.HasHit()) {
 					return std::nullopt;
@@ -503,11 +503,11 @@ namespace Placement
 		}
 		if (offsetSteps) {
 			g_offset = std::clamp(g_offset + offsetSteps * 1.0f, kMinOffset, kMaxOffset);
-			RE::DebugNotification(fmt::format("Distance from wall: {:+.0f}", g_offset - kDefaultOffset).c_str());
+			Notify(fmt::format("Distance from wall: {:+.0f}", g_offset - kDefaultOffset).c_str());
 		}
 		if (scaleSteps) {
 			g_scale = std::clamp(g_scale + scaleSteps * 0.05f, kMinScale, kMaxScale);
-			RE::DebugNotification(fmt::format("Poster size: {:.0f}%", g_scale * 100.0f).c_str());
+			Notify(fmt::format("Poster size: {:.0f}%", g_scale * 100.0f).c_str());
 		}
 		g_whyNot = nullptr;
 		g_valid = ComputePose();
