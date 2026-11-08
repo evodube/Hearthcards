@@ -84,8 +84,8 @@ namespace
 	bool SafeInstallPresentHook()
 	{
 		__try {
-			auto* renderer = RE::BSGraphics::Renderer::GetSingleton();
-			auto* sc = renderer ? reinterpret_cast<IDXGISwapChain*>(renderer->data.renderWindows[0].swapChain) : nullptr;
+			auto* window = RE::BSGraphics::Renderer::GetCurrentRenderWindow();
+			auto* sc = window ? reinterpret_cast<IDXGISwapChain*>(window->swapChain) : nullptr;
 			return sc && PatchPresentSlot(sc);
 		} __except (Cards::SehFilter(GetExceptionInformation(), "InstallPresentHook")) {
 			return false;

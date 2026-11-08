@@ -790,7 +790,7 @@ namespace Cards
 						continue;
 					}
 					auto* cm = RE::ControlMap::GetSingleton();
-					if (ItemMenuOpen(RE::UI::GetSingleton()) && !(cm && cm->textEntryCount > 0)) {
+					if (ItemMenuOpen(RE::UI::GetSingleton()) && !(cm && cm->GetRuntimeData().textEntryCount > 0)) {
 						SKSE::GetTaskInterface()->AddUITask([] { FlipInventoryCard(); });
 					}
 				}

@@ -158,9 +158,9 @@ namespace Placement
 			const RE::NiPoint3 to = from + dir * (a_reach + camToPlayer);
 
 			const float   s = RE::bhkWorld::GetWorldScale();
-			std::uint32_t info = 0;
+			RE::CFilter info{};
 			player->GetCollisionFilterInfo(info);
-			const std::uint32_t filter = (info & 0xFFFF0000) | static_cast<std::uint32_t>(RE::COL_LAYER::kLOS);
+			const std::uint32_t filter = (info.filter & 0xFFFF0000) | static_cast<std::uint32_t>(RE::COL_LAYER::kLOS);
 			for (int tries = 0; tries < 4; ++tries) {
 				RE::bhkPickData pick{};
 				pick.rayInput.from = RE::hkVector4(from.x * s, from.y * s, from.z * s, 0.0f);
@@ -275,15 +275,15 @@ namespace Placement
 			if (!a_enable) {
 				g_disabledControls = 0;
 				for (const auto f : { UEFlag::kActivate, UEFlag::kMenu, UEFlag::kFighting, UEFlag::kMainFour, UEFlag::kWheelZoom }) {
-					if (cm->enabledControls.all(f)) {
+					if (cm->AreControlsEnabled(f)) {
 						g_disabledControls |= static_cast<std::uint32_t>(f);
 					}
 				}
 				if (g_disabledControls) {
-					cm->ToggleControls(static_cast<UEFlag>(g_disabledControls), false);
+					cm->ToggleControls(static_cast<UEFlag>(g_disabledControls), false, false);
 				}
 			} else if (g_disabledControls) {
-				cm->ToggleControls(static_cast<UEFlag>(g_disabledControls), true);
+				cm->ToggleControls(static_cast<UEFlag>(g_disabledControls), true, false);
 				g_disabledControls = 0;
 			}
 		}

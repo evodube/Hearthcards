@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.24)
-project(Hearthcards VERSION 0.7.0 LANGUAGES CXX)
+project(Hearthcards VERSION 0.8.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# ---- CommonLibSSE-NG (git submodule, v3.7.0) ----
+# ---- CommonLibSSE-NG (git submodule: alandtse/CommonLibSSE-NG v15.7.3 - SE 1.5.97, AE 1.6.x and 1.7.x) ----
 set(ENABLE_SKYRIM_SE ON CACHE BOOL "" FORCE)
 set(ENABLE_SKYRIM_AE ON CACHE BOOL "" FORCE)
 set(ENABLE_SKYRIM_VR OFF CACHE BOOL "" FORCE)
@@ -15,6 +15,7 @@ include(extern/CommonLibSSE-NG/cmake/CommonLibSSE.cmake)
 add_commonlibsse_plugin(${PROJECT_NAME}
     AUTHOR "evodube"
     USE_ADDRESS_LIBRARY
+    STRUCT_DEPENDENT
     SOURCES src/main.cpp src/Config.cpp src/Cards.cpp src/Placement.cpp src/Art.cpp src/Dds.cpp)
 
 find_path(STB_INCLUDE_DIRS "stb_image.h" REQUIRED)
