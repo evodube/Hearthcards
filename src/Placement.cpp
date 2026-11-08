@@ -392,8 +392,18 @@ namespace Placement
 				Cards::OnPosterPlaced(ref.get());
 				spdlog::info("Poster {:08X} hung at ({:.0f}, {:.0f}, {:.0f}), {:.0f}%", ref->GetFormID(), g_pos.x, g_pos.y, g_pos.z, g_scale * 100.0f);
 			} else if (auto target = g_target.get()) {
-				target->data.angle = angle;
-				target->SetPosition(g_pos);
+				// Move it onto the preview, which already sits at the new spot (MoveTo also moves its 3D and
+				// collision and marks it moved in the save; a bare SetPosition only changed the stored data).
+				auto ghost = g_ghost.get();
+				if (ghost) {
+					ghost->data.location = g_pos;
+					ghost->data.angle = angle;
+					target->MoveTo(ghost.get());
+				} else {
+					target->data.angle = angle;
+					target->SetPosition(g_pos);
+					target->Update3DPosition(true);
+				}
 				SetRefScale(target.get(), g_scale);
 				Cards::SetPosterHidden(target.get(), false);
 				spdlog::info("Poster {:08X} moved to ({:.0f}, {:.0f}, {:.0f}), {:.0f}%", target->GetFormID(), g_pos.x, g_pos.y, g_pos.z, g_scale * 100.0f);
