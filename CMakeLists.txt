@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(Hearthcards VERSION 0.9.1 LANGUAGES CXX)
+project(Hearthcards VERSION 0.9.2 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,10 +12,12 @@ set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
 add_subdirectory(extern/CommonLibSSE-NG EXCLUDE_FROM_ALL)
 include(extern/CommonLibSSE-NG/cmake/CommonLibSSE.cmake)
 
+# Struct-independent (the default): CommonLibSSE-NG reads both the pre- and post-1.6.629 struct layouts at
+# runtime, so SKSE must load the DLL on every version. Marking it STRUCT_DEPENDENT made SKSE on AE 1.6.629+
+# reject it as "only compatible with versions earlier than 1.6.629".
 add_commonlibsse_plugin(${PROJECT_NAME}
     AUTHOR "evodube"
     USE_ADDRESS_LIBRARY
-    STRUCT_DEPENDENT
     SOURCES src/main.cpp src/Config.cpp src/Cards.cpp src/Placement.cpp src/Art.cpp src/Dds.cpp)
 
 find_path(STB_INCLUDE_DIRS "stb_image.h" REQUIRED)
