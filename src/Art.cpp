@@ -149,8 +149,9 @@ namespace Art
 				const auto stamp = StampOf(j.source);
 				const auto it = manifest.find(j.key);
 				std::error_code ec;
-				// the fit mode is part of the record, so changing bCropArt (or updating from a cropping version) redoes pictures
-				const auto tag = ToUtf8(j.source.filename()) + (Config::Get().cropArt ? "#crop" : "#fit");
+				// the fit mode is part of the record, so changing bCropArt (or updating from a cropping version) redoes pictures;
+				// so is the converter version, so pictures made before transparency support are redone once
+				const auto tag = ToUtf8(j.source.filename()) + (Config::Get().cropArt ? "#crop" : "#fit") + "#a";  // #a: alpha-aware converter (0.8.3)
 				if (it != manifest.end() && it->second.first == tag && it->second.second == stamp && fs::exists(j.target, ec)) {
 					++skipped;
 					continue;

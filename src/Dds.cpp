@@ -14,7 +14,7 @@
 
 #include "Dds.h"
 
-// Picture decoding and DXT1 compression, taken from Hearthframe.
+// Picture decoding and DXT1/DXT5 compression, based on Hearthframe's.
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_WINDOWS_UTF8
 #include <stb_image.h>
@@ -90,8 +90,9 @@ namespace Dds
 		// Centre-crop to a_aspect (width / height), then scale to exactly w x h (stretching if the
 		// aspects differ - the card mesh's UVs undo the stretch).
 		// Pads the picture to a_aspect instead of cutting it: the picture stays whole and centred, the
-		// added strips take the average colour of its outermost pixels (a card's own border colour).
-		Image PadToAspect(const Image& src, float a_aspect)
+		// added strips take the average colour of its outermost pixels (a card's own border colour), or are
+		// fully transparent when the picture itself has transparency.
+		Image PadToAspect(const Image& src, float a_aspect, bool a_transparent)
 		{
 			const float srcAspect = static_cast<float>(src.w) / src.h;
 			int         pw = src.w, ph = src.h;
@@ -120,8 +121,9 @@ namespace Dds
 				add(0, y);
 				add(src.w - 1, y);
 			}
+			// a picture with transparency gets see-through strips; an opaque one its edge colour
 			const std::uint8_t fill[4]{ static_cast<std::uint8_t>(sum[0] / n), static_cast<std::uint8_t>(sum[1] / n),
-				static_cast<std::uint8_t>(sum[2] / n), 255 };
+				static_cast<std::uint8_t>(sum[2] / n), static_cast<std::uint8_t>(a_transparent ? 0 : 255) };
 			Image out;
 			out.w = pw;
 			out.h = ph;
@@ -158,12 +160,14 @@ namespace Dds
 			return Resample(src, cx, cy, cw, ch, w, h);
 		}
 
-		void CompressBC1(const Image& img, std::vector<std::uint8_t>& out)
+		// BC1 (DXT1, 8 bytes per 4x4 block) for opaque pictures, BC3 (DXT5, 16 bytes with smooth alpha) otherwise.
+		void Compress(const Image& img, std::vector<std::uint8_t>& out, bool a_alpha)
 		{
 			const int bw = (std::max)(1, (img.w + 3) / 4);
 			const int bh = (std::max)(1, (img.h + 3) / 4);
 			std::uint8_t block[64];
-			std::uint8_t dst[8];
+			std::uint8_t dst[16];
+			const int    size = a_alpha ? 16 : 8;
 			for (int by = 0; by < bh; ++by) {
 				for (int bx = 0; bx < bw; ++bx) {
 					for (int py = 0; py < 4; ++py) {
@@ -173,8 +177,8 @@ namespace Dds
 							std::memcpy(&block[(py * 4 + px) * 4], &img.px[(static_cast<std::size_t>(sy) * img.w + sx) * 4], 4);
 						}
 					}
-					stb_compress_dxt_block(dst, block, 0, STB_DXT_HIGHQUAL);
-					out.insert(out.end(), dst, dst + 8);
+					stb_compress_dxt_block(dst, block, a_alpha ? 1 : 0, STB_DXT_HIGHQUAL);
+					out.insert(out.end(), dst, dst + size);
 				}
 			}
 		}
@@ -186,14 +190,15 @@ namespace Dds
 			}
 		}
 
-		// Classic DX9 DDS header (what Skyrim's loader expects for DXT1 / uncompressed BGRA).
-		std::vector<std::uint8_t> Header(int w, int h, int mips, bool dxt1, std::uint32_t linearSize)
+		// Classic DX9 DDS header (what Skyrim's loader expects for DXT1 / DXT5 / uncompressed BGRA).
+		// a_fourCC: '1' = DXT1, '5' = DXT5, 0 = uncompressed BGRA.
+		std::vector<std::uint8_t> Header(int w, int h, int mips, char a_fourCC, std::uint32_t linearSize)
 		{
 			std::vector<std::uint8_t> v;
 			v.reserve(128);
 			v.insert(v.end(), { 'D', 'D', 'S', ' ' });
 			PutU32(v, 124);
-			PutU32(v, 0x1 | 0x2 | 0x4 | 0x1000 | (mips > 1 ? 0x20000u : 0u) | (dxt1 ? 0x80000u : 0x8u));
+			PutU32(v, 0x1 | 0x2 | 0x4 | 0x1000 | (mips > 1 ? 0x20000u : 0u) | (a_fourCC ? 0x80000u : 0x8u));
 			PutU32(v, static_cast<std::uint32_t>(h));
 			PutU32(v, static_cast<std::uint32_t>(w));
 			PutU32(v, linearSize);
@@ -204,9 +209,9 @@ namespace Dds
 			}
 			// pixel format
 			PutU32(v, 32);
-			if (dxt1) {
+			if (a_fourCC) {
 				PutU32(v, 0x4);  // DDPF_FOURCC
-				v.insert(v.end(), { 'D', 'X', 'T', '1' });
+				v.insert(v.end(), { 'D', 'X', 'T', static_cast<std::uint8_t>(a_fourCC) });
 				for (int i = 0; i < 5; ++i) {
 					PutU32(v, 0);
 				}
@@ -334,12 +339,23 @@ namespace Dds
 		}
 		src.px.assign(px, px + static_cast<std::size_t>(src.w) * src.h * 4);
 		stbi_image_free(px);
+		// a picture with any transparency (e.g. a png with the background past its border cut away) keeps it:
+		// it's written as DXT5 and the card meshes alpha-test it; everything else stays opaque DXT1
+		bool transparent = false;
 		for (std::size_t i = 3; i < src.px.size(); i += 4) {
-			src.px[i] = 255;  // cards are opaque
+			if (src.px[i] < 250) {
+				transparent = true;
+				break;
+			}
+		}
+		if (!transparent) {
+			for (std::size_t i = 3; i < src.px.size(); i += 4) {
+				src.px[i] = 255;
+			}
 		}
 
 		if (!a_crop) {
-			src = PadToAspect(src, a_aspect);
+			src = PadToAspect(src, a_aspect, transparent);
 		}
 		Image level = Fit(std::move(src), a_width, a_height, a_aspect);
 		int   mips = 1;
@@ -350,13 +366,13 @@ namespace Dds
 		std::vector<std::uint8_t> data;
 		data.reserve(static_cast<std::size_t>(a_width) * a_height);
 		for (int m = 0; m < mips; ++m) {
-			CompressBC1(level, data);
+			Compress(level, data, transparent);
 			if (m + 1 < mips) {
 				level = Half(level);
 			}
 		}
-		const auto linear = static_cast<std::uint32_t>((std::max)(1, (a_width + 3) / 4) * (std::max)(1, (a_height + 3) / 4) * 8);
-		auto       bytes = Header(a_width, a_height, mips, true, linear);
+		const auto linear = static_cast<std::uint32_t>((std::max)(1, (a_width + 3) / 4) * (std::max)(1, (a_height + 3) / 4) * (transparent ? 16 : 8));
+		auto       bytes = Header(a_width, a_height, mips, transparent ? '5' : '1', linear);
 		bytes.insert(bytes.end(), data.begin(), data.end());
 		return WriteAtomically(a_out, bytes, a_error);
 	}
