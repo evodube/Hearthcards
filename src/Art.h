@@ -22,7 +22,7 @@
 //   037 - The Dragonborn [R].png     -> ... and rarity: [C] common, [U] uncommon, [R] rare
 //   back.png                         -> the back of every card
 //
-// png, jpg, bmp and tga, any size; fitted to a 5:7 portrait card. Transparent parts of a png (or tga) stay see-through.
+// png, jpg, bmp and tga, any size; stretched to a 5:7 portrait card (iArtFit: fit or crop instead). Cards are opaque.
 namespace Art
 {
 	struct Card

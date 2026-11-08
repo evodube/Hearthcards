@@ -150,10 +150,10 @@ namespace Art
 				const auto it = manifest.find(j.key);
 				std::error_code ec;
 				// the fit mode and the converter version are part of the record, so changing iArtFit (or updating
-				// from an older version) redoes pictures; #a: alpha-aware converter (0.8.3)
+				// from an older version) redoes pictures; #o: opaque converter (0.8.5 - 0.8.3/0.8.4 kept transparency)
 				static constexpr std::array<const char*, 3> kModeTags{ "#stretch", "#fit", "#crop" };
 				const int  mode = Config::Get().artFit;
-				const auto tag = ToUtf8(j.source.filename()) + kModeTags[mode] + "#a";
+				const auto tag = ToUtf8(j.source.filename()) + kModeTags[mode] + "#o";
 				if (it != manifest.end() && it->second.first == tag && it->second.second == stamp && fs::exists(j.target, ec)) {
 					++skipped;
 					continue;

@@ -339,19 +339,10 @@ namespace Dds
 		}
 		src.px.assign(px, px + static_cast<std::size_t>(src.w) * src.h * 4);
 		stbi_image_free(px);
-		// a picture with any transparency (e.g. a png with the background past its border cut away) keeps it:
-		// it's written as DXT5 and the card meshes alpha-test it; everything else stays opaque DXT1
-		bool transparent = false;
+		// cards are opaque: any transparency in the picture is dropped (written as DXT1)
+		constexpr bool transparent = false;
 		for (std::size_t i = 3; i < src.px.size(); i += 4) {
-			if (src.px[i] < 250) {
-				transparent = true;
-				break;
-			}
-		}
-		if (!transparent) {
-			for (std::size_t i = 3; i < src.px.size(); i += 4) {
-				src.px[i] = 255;
-			}
+			src.px[i] = 255;
 		}
 
 		float aspect = a_aspect;
