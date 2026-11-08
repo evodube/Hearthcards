@@ -167,8 +167,8 @@ def poster_image(cards):
         x, z = slot_center(i)
         u, v = (POSTER_W / 2 - x) * sx, (POSTER_H / 2 - z) * sz
         hw, hh = CARD_W / 2 * sx, CARD_H / 2 * sz
-        col = RARITY.get(cards[i]["rarity"], RARITY["C"])[1]
-        d.rounded_rectangle((u - hw, v - hh, u + hw, v + hh), 8, outline=col, width=4)
+        # one neutral outline for every slot: a card's rarity can change (art file tags), the poster can't
+        d.rounded_rectangle((u - hw, v - hh, u + hw, v + hh), 8, outline=(96, 70, 42), width=4)
         centered(d, (u, v), f"{i}", fnum, (110, 84, 52))
     return img
 

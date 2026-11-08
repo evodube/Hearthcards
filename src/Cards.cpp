@@ -87,7 +87,27 @@ namespace Cards
 			int        count;
 		};
 		std::mutex          g_evMtx;
-		std::vector<int>    g_newCards;  // card indices the player just received
+		struct NewCard
+		{
+			int        card;
+			RE::FormID from;    // where it came from (0 = picked up from the world)
+			bool       bought;  // arrived while bartering
+		};
+		struct Stored
+		{
+			int           card;
+			RE::FormID    where;  // a container / follower holding it, or the card lying in the world
+			std::uint32_t day;    // when it was put there
+		};
+		struct GoldPaid
+		{
+			RE::FormID to;
+			int        count;
+		};
+		std::vector<NewCard>  g_newCards;  // cards the player just received
+		std::vector<Stored>   g_storeEvents;  // cards the player just put somewhere / dropped
+		std::vector<GoldPaid> g_goldPaid;     // gold handed over while bartering (for refunds)
+		std::vector<Stored>   g_stored;       // cards you own that are in a chest, with a follower, or on the floor
 		std::vector<Return> g_returns;   // non-card items put into a poster
 		std::atomic<bool>   g_dirty{ true };
 
@@ -144,6 +164,39 @@ namespace Cards
 			return ref && !ref->IsDeleted() && IsPoster(ref) ? ref : nullptr;
 		}
 
+		std::uint32_t Today()
+		{
+			auto* cal = RE::Calendar::GetSingleton();
+			return static_cast<std::uint32_t>(cal ? cal->GetDaysPassed() : 0.0f);
+		}
+
+		// Is the stored card still there? Unloaded places count as "yes" for 30 days (dungeon chests reset).
+		bool StillStored(const Stored& a_s)
+		{
+			auto* ref = RE::TESForm::LookupByID<RE::TESObjectREFR>(a_s.where);
+			if (!ref) {
+				return Today() < a_s.day + 30;
+			}
+			if (ref->IsDeleted()) {
+				return false;
+			}
+			if (ref->GetBaseObject() == g_cards[a_s.card]) {  // lying in the world
+				return !ref->IsDisabled() && ref->GetParentCell() != nullptr;
+			}
+			return CardCounts(ref)[a_s.card] > 0;
+		}
+
+		CardSet StoredCards()
+		{
+			CardSet s;
+			std::erase_if(g_stored, [](const Stored& a_s) { return !StillStored(a_s); });
+			for (const auto& st : g_stored) {
+				s.set(st.card);
+			}
+			return s;
+		}
+
+		// Every card you own that isn't in your inventory: on posters, rolled up, in chests, with followers, on the floor.
 		CardSet PinnedEverywhere()
 		{
 			CardSet s;
@@ -153,6 +206,7 @@ namespace Cards
 			for (const auto& st : g_stash) {
 				s |= st;
 			}
+			s |= StoredCards();
 			return s;
 		}
 
@@ -277,20 +331,61 @@ namespace Cards
 		}
 
 		// ------------------------------------------------------------------ duplicates
-		void ProcessNewCards(std::vector<int>& a_cards)
+		void ProcessNewCards(std::vector<NewCard>& a_cards, std::vector<GoldPaid>& a_gold)
 		{
 			if (!Config::Get().noDuplicates || a_cards.empty()) {
 				return;
 			}
-			std::sort(a_cards.begin(), a_cards.end());
-			a_cards.erase(std::unique(a_cards.begin(), a_cards.end()), a_cards.end());
 			auto*         player = RE::PlayerCharacter::GetSingleton();
 			const CardSet elsewhere = PinnedEverywhere();
 			const auto    have = CardCounts(player);
-			for (const int i : a_cards) {
+			std::unordered_set<int> done;
+			for (const auto& nc : a_cards) {
+				const int i = nc.card;
+				if (!done.insert(i).second || !g_cards[i]) {
+					continue;
+				}
 				const int keep = elsewhere.test(i) ? 0 : 1;
-				if (have[i] > keep && g_cards[i]) {
-					player->RemoveItem(g_cards[i], have[i] - keep, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
+				const int extra = have[i] - keep;
+				if (extra <= 0) {
+					continue;
+				}
+				auto* seller = nc.bought ? RE::TESForm::LookupByID<RE::TESObjectREFR>(nc.from) : nullptr;
+				if (seller) {
+					// bought a card you already have: it goes back on the shelf and you get your gold back
+					player->RemoveItem(g_cards[i], extra, RE::ITEM_REMOVE_REASON::kStoreInContainer, nullptr, seller);
+					// the gold handed over for it: same merchant first, otherwise the latest payment
+					int        refund = 0;
+					RE::FormID paidTo = 0;
+					auto       pay = std::find_if(a_gold.begin(), a_gold.end(), [&](const GoldPaid& g) { return g.to == nc.from; });
+					if (pay == a_gold.end() && !a_gold.empty()) {
+						pay = std::prev(a_gold.end());
+					}
+					if (pay != a_gold.end()) {
+						refund = pay->count;
+						paidTo = pay->to;
+						a_gold.erase(pay);
+					}
+					if (refund <= 0) {
+						refund = static_cast<int>(g_cards[i]->GetGoldValue()) * extra;
+					}
+					if (auto* gold = RE::TESForm::LookupByID<RE::TESBoundObject>(0xF); gold && refund > 0) {
+						if (auto* merchant = RE::TESForm::LookupByID<RE::TESObjectREFR>(paidTo ? paidTo : nc.from)) {
+							const auto counts = merchant->GetInventoryCounts([gold](RE::TESBoundObject& o) { return &o == gold; });
+							int        has = 0;
+							for (const auto& [obj, c] : counts) {
+								has += c;
+							}
+							if (has > 0) {
+								merchant->RemoveItem(gold, (std::min)(has, refund), RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
+							}
+						}
+						player->AddObjectToContainer(gold, nullptr, refund, nullptr);
+					}
+					Notify(fmt::format("You already have {} - the merchant took it back ({} gold returned).", CardName(i), refund));
+					spdlog::info("Duplicate {} bought: returned, {} gold refunded", i + 1, refund);
+				} else {
+					player->RemoveItem(g_cards[i], extra, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
 					Notify(fmt::format("You already have {}.", CardName(i)));
 					spdlog::info("Duplicate {} removed ({} in inventory, {} elsewhere)", i + 1, have[i], elsewhere.test(i));
 				}
@@ -566,9 +661,26 @@ namespace Cards
 				if (card >= 0 || toPoster || fromPoster) {
 					g_dirty = true;
 				}
+				auto*      ui = RE::UI::GetSingleton();
+				const bool bartering = ui && ui->IsMenuOpen(RE::BarterMenu::MENU_NAME);
 				std::lock_guard lk(g_evMtx);
 				if (card >= 0 && a_event->newContainer == kPlayerId) {
-					g_newCards.push_back(card);
+					g_newCards.push_back({ card, a_event->oldContainer, bartering && a_event->oldContainer != 0 });
+				}
+				if (bartering && a_event->baseObj == 0xF && a_event->oldContainer == kPlayerId && a_event->newContainer) {
+					g_goldPaid.push_back({ a_event->newContainer, a_event->itemCount });
+				}
+				// the player put a card somewhere other than a poster (sold cards don't count)
+				if (card >= 0 && a_event->oldContainer == kPlayerId && a_event->newContainer != kPlayerId && !toPoster && !bartering) {
+					RE::FormID where = a_event->newContainer;
+					if (!where) {
+						if (auto dropped = a_event->reference.get()) {
+							where = dropped->GetFormID();
+						}
+					}
+					if (where) {
+						g_storeEvents.push_back({ card, where, 0 });
+					}
 				}
 				if (toPoster && card < 0) {
 					g_returns.push_back({ a_event->newContainer, a_event->baseObj, a_event->itemCount });
@@ -693,6 +805,7 @@ namespace Cards
 		constexpr std::uint32_t kRecStash = 'STSH';
 		constexpr std::uint32_t kRecGhosts = 'GHST';
 		constexpr std::uint32_t kRecMerchants = 'MRCH';
+		constexpr std::uint32_t kRecStored = 'STOR';
 		constexpr std::uint32_t kVersion = 1;
 
 		void WriteIds(SKSE::SerializationInterface* a_intfc, std::uint32_t a_type, const std::vector<RE::FormID>& a_ids)
@@ -730,6 +843,15 @@ namespace Cards
 		{
 			WriteIds(a_intfc, kRecPosters, g_posters);
 			WriteIds(a_intfc, kRecGhosts, Placement::GhostIds());
+			if (a_intfc->OpenRecord(kRecStored, kVersion)) {
+				const auto n = static_cast<std::uint32_t>(g_stored.size());
+				a_intfc->WriteRecordData(n);
+				for (const auto& st : g_stored) {
+					a_intfc->WriteRecordData(static_cast<std::uint32_t>(st.card));
+					a_intfc->WriteRecordData(st.where);
+					a_intfc->WriteRecordData(st.day);
+				}
+			}
 			if (a_intfc->OpenRecord(kRecMerchants, kVersion)) {
 				const auto n = static_cast<std::uint32_t>(g_stocked.size());
 				a_intfc->WriteRecordData(n);
@@ -767,6 +889,22 @@ namespace Cards
 					break;
 				case kRecGhosts:
 					g_staleGhosts = ReadIds(a_intfc);
+					break;
+				case kRecStored:
+					{
+						std::uint32_t n = 0;
+						a_intfc->ReadRecordData(n);
+						for (std::uint32_t k = 0; k < n; ++k) {
+							std::uint32_t card = 0, day = 0;
+							RE::FormID    id = 0, resolved = 0;
+							a_intfc->ReadRecordData(card);
+							a_intfc->ReadRecordData(id);
+							a_intfc->ReadRecordData(day);
+							if (card < static_cast<std::uint32_t>(kCards) && a_intfc->ResolveFormID(id, resolved)) {
+								g_stored.push_back({ static_cast<int>(card), resolved, day });
+							}
+						}
+					}
 					break;
 				case kRecMerchants:
 					{
@@ -816,9 +954,12 @@ namespace Cards
 			g_views.clear();
 			g_staleGhosts.clear();
 			g_stocked.clear();
+			g_stored.clear();
 			{
 				std::lock_guard lk(g_evMtx);
 				g_newCards.clear();
+				g_storeEvents.clear();
+				g_goldPaid.clear();
 				g_returns.clear();
 			}
 			g_dirty = true;
@@ -995,18 +1136,35 @@ namespace Cards
 			}
 			g_staleGhosts.clear();
 		}
-		std::vector<int>    cards;
-		std::vector<Return> returns;
+		std::vector<NewCard>  cards;
+		std::vector<Return>   returns;
+		std::vector<Stored>   stored;
+		std::vector<GoldPaid> gold;
 		{
 			std::lock_guard lk(g_evMtx);
 			cards.swap(g_newCards);
 			returns.swap(g_returns);
+			stored.swap(g_storeEvents);
+			auto* ui = RE::UI::GetSingleton();
+			if (!cards.empty() || !(ui && ui->IsMenuOpen(RE::BarterMenu::MENU_NAME))) {
+				gold.swap(g_goldPaid);  // keep gold paid until the card it bought shows up
+			}
+		}
+		for (auto& st : stored) {
+			auto* where = RE::TESForm::LookupByID<RE::TESObjectREFR>(st.where);
+			auto* base = where ? where->GetBaseObject() : nullptr;
+			if (base && g_merchantChests.contains(base->GetFormID())) {
+				continue;  // a merchant's chest: as good as sold
+			}
+			st.day = Today();
+			std::erase_if(g_stored, [&](const Stored& a_s) { return a_s.card == st.card && a_s.where == st.where; });
+			g_stored.push_back(st);
 		}
 		if (!returns.empty()) {
 			ProcessReturns(returns);
 		}
 		if (!cards.empty()) {
-			ProcessNewCards(cards);
+			ProcessNewCards(cards, gold);
 		}
 		const bool reread = g_dirty.exchange(false);
 		if (reread) {
