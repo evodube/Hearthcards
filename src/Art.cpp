@@ -105,32 +105,42 @@ namespace Art
 			return s;
 		}
 
-		// target dds -> stamp of the picture it was made from
-		std::map<std::string, std::pair<std::string, Stamp>> ReadManifest()
+		// card -> the picture its texture was made from, and the texture file that was written. The texture's
+		// own stamp matters: under MO2 a texture always "exists" (Hearthcards ships placeholders), so a converted
+		// texture that was moved or deleted is only noticed because the file found there isn't the one we wrote.
+		struct Entry
 		{
-			std::map<std::string, std::pair<std::string, Stamp>> m;
-			std::ifstream                                       f(kManifest);
-			std::string                                         line;
+			std::string source;  // picture file name + fit/transparency tags
+			Stamp       picture;
+			Stamp       texture;
+		};
+
+		std::map<std::string, Entry> ReadManifest()
+		{
+			std::map<std::string, Entry> m;
+			std::ifstream                f(kManifest);
+			std::string                  line;
 			while (std::getline(f, line)) {
 				std::istringstream ss(line);
-				std::string        target, source, size, time;
-				if (std::getline(ss, target, '|') && std::getline(ss, source, '|') && std::getline(ss, size, '|') && std::getline(ss, time)) {
+				std::string        key, source, size, time, tsize, ttime;
+				if (std::getline(ss, key, '|') && std::getline(ss, source, '|') && std::getline(ss, size, '|') && std::getline(ss, time, '|') &&
+					std::getline(ss, tsize, '|') && std::getline(ss, ttime)) {
 					try {
-						m[target] = { source, { std::stoull(size), std::stoll(time) } };
+						m[key] = { source, { std::stoull(size), std::stoll(time) }, { std::stoull(tsize), std::stoll(ttime) } };
 					} catch (...) {
 					}
-				}
+				}  // older lines (no texture stamp) are ignored: those pictures are converted once more
 			}
 			return m;
 		}
 
-		void WriteManifest(const std::map<std::string, std::pair<std::string, Stamp>>& a_m)
+		void WriteManifest(const std::map<std::string, Entry>& a_m)
 		{
 			std::error_code ec;
 			fs::create_directories(kManifest.parent_path(), ec);
 			std::ofstream f(kManifest, std::ios::trunc);
-			for (const auto& [target, v] : a_m) {
-				f << target << '|' << v.first << '|' << v.second.size << '|' << v.second.time << '\n';
+			for (const auto& [key, e] : a_m) {
+				f << key << '|' << e.source << '|' << e.picture.size << '|' << e.picture.time << '|' << e.texture.size << '|' << e.texture.time << '\n';
 			}
 		}
 
@@ -154,14 +164,15 @@ namespace Art
 				static constexpr std::array<const char*, 3> kModeTags{ "#stretch", "#fit", "#crop" };
 				const int  mode = Config::Get().artFit;
 				const auto tag = ToUtf8(j.source.filename()) + kModeTags[mode] + (Config::Get().transparency ? "#a" : "#o");
-				if (it != manifest.end() && it->second.first == tag && it->second.second == stamp && fs::exists(j.target, ec)) {
+				if (it != manifest.end() && it->second.source == tag && it->second.picture == stamp && fs::exists(j.target, ec) &&
+					StampOf(j.target) == it->second.texture) {
 					++skipped;
 					continue;
 				}
 				std::string err;
 				const auto  t0 = std::chrono::steady_clock::now();
 				if (Dds::ConvertPicture(j.source, kCardAspect, kTexW, kTexH, j.target, err, static_cast<Dds::FitMode>(mode), Config::Get().transparency)) {
-					manifest[j.key] = { tag, stamp };
+					manifest[j.key] = { tag, stamp, StampOf(j.target) };
 					++made;
 					spdlog::info("Card art: {} -> {} ({} ms)", ToUtf8(j.source.filename()), ToUtf8(j.target),
 						std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count());
