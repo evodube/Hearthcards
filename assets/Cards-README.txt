@@ -11,8 +11,9 @@ File names start with the card number (1-100):
   037 - The Dragonborn [R].png         art + name + rarity: [C] common, [U] uncommon, [R] rare
   back.png                             the back of every card
 
-  png, jpg, bmp or tga, any size. Each picture is cropped from the middle to a 5:7 portrait card,
-  so 500 x 700, 1000 x 1400 and so on fit exactly.
+  png, jpg, bmp or tga, any size. Pictures are fitted onto a 5:7 portrait card whole - nothing is cut
+  off; if a picture is a different shape, the leftover strip is filled with its own edge colour.
+  500 x 700, 1000 x 1400 and so on fit exactly. (Hearthcards.ini [Art] bCropArt=1 crops instead.)
 
   Cards without a picture keep the built-in art, name and rarity (01-60 common, 61-90 uncommon, 91-100 rare).
 

@@ -31,9 +31,10 @@ namespace Dds
 	unsigned char* DecodePicture(const std::filesystem::path& a_path, int& a_w, int& a_h, std::string& a_error, bool& a_notFound);
 	void           FreePixels(unsigned char* a_px);
 
-	// Decodes a picture (png/jpg/bmp/tga), centre-crops it to a_aspect (width / height), scales it to
+	// Decodes a picture (png/jpg/bmp/tga), fits it to a_aspect (width / height) - padded with its own edge
+	// colour, or centre-cropped when a_crop is set - scales it to
 	// a_width x a_height, builds the full mip chain and writes a BC1 (DXT1) .dds (via a temp file, so the
 	// game never sees half a texture). Returns false and fills a_error on failure.
 	bool ConvertPicture(const std::filesystem::path& a_source, float a_aspect, int a_width, int a_height,
-		const std::filesystem::path& a_out, std::string& a_error);
+		const std::filesystem::path& a_out, std::string& a_error, bool a_crop = false);
 }

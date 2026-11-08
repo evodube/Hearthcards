@@ -89,6 +89,54 @@ namespace Dds
 
 		// Centre-crop to a_aspect (width / height), then scale to exactly w x h (stretching if the
 		// aspects differ - the card mesh's UVs undo the stretch).
+		// Pads the picture to a_aspect instead of cutting it: the picture stays whole and centred, the
+		// added strips take the average colour of its outermost pixels (a card's own border colour).
+		Image PadToAspect(const Image& src, float a_aspect)
+		{
+			const float srcAspect = static_cast<float>(src.w) / src.h;
+			int         pw = src.w, ph = src.h;
+			if (std::fabs(srcAspect - a_aspect) < 0.002f) {
+				return src;
+			}
+			if (srcAspect > a_aspect) {
+				ph = static_cast<int>(std::lround(src.w / a_aspect));
+			} else {
+				pw = static_cast<int>(std::lround(src.h * a_aspect));
+			}
+			std::uint64_t sum[3]{};
+			std::uint64_t n = 0;
+			auto          add = [&](int x, int y) {
+                const auto* p = &src.px[(static_cast<std::size_t>(y) * src.w + x) * 4];
+                sum[0] += p[0];
+                sum[1] += p[1];
+                sum[2] += p[2];
+                ++n;
+			};
+			for (int x = 0; x < src.w; ++x) {
+				add(x, 0);
+				add(x, src.h - 1);
+			}
+			for (int y = 0; y < src.h; ++y) {
+				add(0, y);
+				add(src.w - 1, y);
+			}
+			const std::uint8_t fill[4]{ static_cast<std::uint8_t>(sum[0] / n), static_cast<std::uint8_t>(sum[1] / n),
+				static_cast<std::uint8_t>(sum[2] / n), 255 };
+			Image out;
+			out.w = pw;
+			out.h = ph;
+			out.px.resize(static_cast<std::size_t>(pw) * ph * 4);
+			for (std::size_t i = 0; i < out.px.size(); i += 4) {
+				std::memcpy(&out.px[i], fill, 4);
+			}
+			const int ox = (pw - src.w) / 2, oy = (ph - src.h) / 2;
+			for (int y = 0; y < src.h; ++y) {
+				std::memcpy(&out.px[(static_cast<std::size_t>(y + oy) * pw + ox) * 4], &src.px[static_cast<std::size_t>(y) * src.w * 4],
+					static_cast<std::size_t>(src.w) * 4);
+			}
+			return out;
+		}
+
 		Image Fit(Image src, int w, int h, float a_aspect)
 		{
 			const float targetAspect = a_aspect;
@@ -276,7 +324,7 @@ namespace Dds
 		stbi_image_free(a_px);
 	}
 
-	bool ConvertPicture(const fs::path& a_source, float a_aspect, int a_width, int a_height, const fs::path& a_out, std::string& a_error)
+	bool ConvertPicture(const fs::path& a_source, float a_aspect, int a_width, int a_height, const fs::path& a_out, std::string& a_error, bool a_crop)
 	{
 		Image src;
 		bool  notFound = false;
@@ -290,6 +338,9 @@ namespace Dds
 			src.px[i] = 255;  // cards are opaque
 		}
 
+		if (!a_crop) {
+			src = PadToAspect(src, a_aspect);
+		}
 		Image level = Fit(std::move(src), a_width, a_height, a_aspect);
 		int   mips = 1;
 		for (int w = a_width, h = a_height; w > 1 || h > 1; w = (std::max)(1, w / 2), h = (std::max)(1, h / 2)) {

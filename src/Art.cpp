@@ -14,6 +14,7 @@
 
 #include "Art.h"
 
+#include "Config.h"
 #include "Dds.h"
 
 namespace fs = std::filesystem;
@@ -148,14 +149,16 @@ namespace Art
 				const auto stamp = StampOf(j.source);
 				const auto it = manifest.find(j.key);
 				std::error_code ec;
-				if (it != manifest.end() && it->second.first == ToUtf8(j.source.filename()) && it->second.second == stamp && fs::exists(j.target, ec)) {
+				// the fit mode is part of the record, so changing bCropArt (or updating from a cropping version) redoes pictures
+				const auto tag = ToUtf8(j.source.filename()) + (Config::Get().cropArt ? "#crop" : "#fit");
+				if (it != manifest.end() && it->second.first == tag && it->second.second == stamp && fs::exists(j.target, ec)) {
 					++skipped;
 					continue;
 				}
 				std::string err;
 				const auto  t0 = std::chrono::steady_clock::now();
-				if (Dds::ConvertPicture(j.source, kCardAspect, kTexW, kTexH, j.target, err)) {
-					manifest[j.key] = { ToUtf8(j.source.filename()), stamp };
+				if (Dds::ConvertPicture(j.source, kCardAspect, kTexW, kTexH, j.target, err, Config::Get().cropArt)) {
+					manifest[j.key] = { tag, stamp };
 					++made;
 					spdlog::info("Card art: {} -> {} ({} ms)", ToUtf8(j.source.filename()), ToUtf8(j.target),
 						std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count());
