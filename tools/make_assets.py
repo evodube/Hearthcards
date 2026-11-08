@@ -194,6 +194,9 @@ def build_textures(out, cards):
 
 # ------------------------------------------------------------------ meshes
 FLAT_N = TEX + "Flat_n.dds"
+# Card faces are alpha-tested (NiAlphaProperty: test enabled, GREATER than 128, no blending), so card art with
+# transparency - e.g. the background past a card's border cut away - is see-through. Opaque DXT1 art is unaffected.
+CARD_ALPHA = 0x12EC
 
 
 def card_meshes(n, z=0.05):
@@ -201,7 +204,9 @@ def card_meshes(n, z=0.05):
     front = nif.Mesh(f"Card{n:03}", TEX + f"Cards\\Card{n:03}.dds", FLAT_N)
     # the card's top is at -Y: the inventory's view (BSInvMarker 90 degrees about X) then shows it upright
     front.quad((hw, hh, z), (-hw, hh, z), (-hw, -hh, z), (hw, -hh, z))
+    front.alpha_flags = CARD_ALPHA
     back = nif.Mesh(f"Card{n:03}Back", TEX + "CardBack.dds", FLAT_N)
+    back.alpha_flags = CARD_ALPHA
     back.quad((-hw, hh, -z), (hw, hh, -z), (hw, -hh, -z), (-hw, -hh, -z))
     return [front, back]
 
@@ -219,6 +224,7 @@ def poster_meshes(cards):
         x, z = slot_center(i)
         m = nif.Mesh(f"Card{i:03}", TEX + f"Cards\\Card{i:03}.dds", FLAT_N, flags=0xF)  # hidden until pinned
         m.quad((x + hw, y, z - hh), (x - hw, y, z - hh), (x - hw, y, z + hh), (x + hw, y, z + hh))
+        m.alpha_flags = CARD_ALPHA
         meshes.append(m)
     return meshes
 

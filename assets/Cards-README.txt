@@ -15,6 +15,10 @@ File names start with the card number (1-100):
   is cut off. 500 x 700, 1000 x 1400 and so on fit without any stretching.
   Hearthcards.ini [Art] iArtFit: 0 stretch (default), 1 fit with an edge-coloured strip, 2 crop.
 
+  Transparency: a png (or tga) with see-through parts keeps them in game - e.g. cut away the
+  background outside your card's border and the card gets that exact outline (rounded corners and all).
+  Pixels more than half transparent are cut out. Hearthcards.ini [Art] bTransparency=0 turns this off.
+
   Cards without a picture keep the built-in art, name and rarity (01-60 common, 61-90 uncommon, 91-100 rare).
 
 With Mod Organizer 2: make a new empty mod (e.g. "My Hearthcards Art"), put the pictures in

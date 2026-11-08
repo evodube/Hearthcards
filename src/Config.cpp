@@ -54,6 +54,7 @@ namespace Config
 		g_v.noDuplicates = ReadInt("General", "bNoDuplicates", 1) != 0;
 		g_v.reach = std::clamp(ReadFloat("Poster", "fReach", d.reach), 100.0f, 2000.0f);
 		g_v.logDebug = ReadInt("General", "bDebugLog", 0) != 0;
+		g_v.transparency = ReadInt("Art", "bTransparency", 1) != 0;
 		g_v.artFit = std::clamp(ReadInt("Art", "iArtFit", d.artFit), 0, 2);
 		g_v.flipKey = std::clamp(ReadInt("General", "iFlipKey", d.flipKey), 1, 255);
 		spdlog::info("Config: loot {} {}%, drawers {} {}%, merchants {} {} cards, no duplicates {}, reach {:.0f}", g_v.loot, g_v.lootChance,

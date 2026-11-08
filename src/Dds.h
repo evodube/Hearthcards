@@ -39,9 +39,11 @@ namespace Dds
 	void           FreePixels(unsigned char* a_px);
 
 	// Decodes a picture (png/jpg/bmp/tga), fits it to a_aspect (width / height) by a_mode (stretch, pad with
-	// its own edge colour, or centre-crop), scales it to
-	// a_width x a_height, builds the full mip chain and writes an opaque BC1 (DXT1) .dds (via a temp file, so the
+	// its own edge colour - or see-through strips for a transparent picture - or centre-crop), scales it to
+	// a_width x a_height, builds the full mip chain and writes a .dds: BC1 (DXT1) for opaque pictures, BC3 (DXT5)
+	// for pictures with transparency when a_keepAlpha is set (via a temp file, so the
 	// game never sees half a texture). Returns false and fills a_error on failure.
 	bool ConvertPicture(const std::filesystem::path& a_source, float a_aspect, int a_width, int a_height,
-		const std::filesystem::path& a_out, std::string& a_error, FitMode a_mode = FitMode::kStretch);
+		const std::filesystem::path& a_out, std::string& a_error, FitMode a_mode = FitMode::kStretch,
+		bool a_keepAlpha = true);
 }

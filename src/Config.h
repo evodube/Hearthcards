@@ -30,6 +30,7 @@ namespace Config
 		float reach = 350.0f;       // how far from you a poster can be hung (game units)
 		int   flipKey = 0x30;      // DirectInput scan code; B: turn the selected card over in the inventory
 		int   artFit = 0;          // card pictures: 0 stretch to the card, 1 fit whole (pad), 2 crop
+		bool  transparency = true; // card pictures keep their transparent parts (see-through card outline)
 		bool  logDebug = false;
 	};
 

@@ -150,17 +150,17 @@ namespace Art
 				const auto it = manifest.find(j.key);
 				std::error_code ec;
 				// the fit mode and the converter version are part of the record, so changing iArtFit (or updating
-				// from an older version) redoes pictures; #o: opaque converter (0.8.5 - 0.8.3/0.8.4 kept transparency)
+				// from an older version) redoes pictures; #a / #o: transparency kept / dropped (bTransparency)
 				static constexpr std::array<const char*, 3> kModeTags{ "#stretch", "#fit", "#crop" };
 				const int  mode = Config::Get().artFit;
-				const auto tag = ToUtf8(j.source.filename()) + kModeTags[mode] + "#o";
+				const auto tag = ToUtf8(j.source.filename()) + kModeTags[mode] + (Config::Get().transparency ? "#a" : "#o");
 				if (it != manifest.end() && it->second.first == tag && it->second.second == stamp && fs::exists(j.target, ec)) {
 					++skipped;
 					continue;
 				}
 				std::string err;
 				const auto  t0 = std::chrono::steady_clock::now();
-				if (Dds::ConvertPicture(j.source, kCardAspect, kTexW, kTexH, j.target, err, static_cast<Dds::FitMode>(mode))) {
+				if (Dds::ConvertPicture(j.source, kCardAspect, kTexW, kTexH, j.target, err, static_cast<Dds::FitMode>(mode), Config::Get().transparency)) {
 					manifest[j.key] = { tag, stamp };
 					++made;
 					spdlog::info("Card art: {} -> {} ({} ms)", ToUtf8(j.source.filename()), ToUtf8(j.target),

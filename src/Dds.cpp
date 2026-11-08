@@ -329,7 +329,8 @@ namespace Dds
 		stbi_image_free(a_px);
 	}
 
-	bool ConvertPicture(const fs::path& a_source, float a_aspect, int a_width, int a_height, const fs::path& a_out, std::string& a_error, FitMode a_mode)
+	bool ConvertPicture(const fs::path& a_source, float a_aspect, int a_width, int a_height, const fs::path& a_out, std::string& a_error, FitMode a_mode,
+		bool a_keepAlpha)
 	{
 		Image src;
 		bool  notFound = false;
@@ -339,10 +340,21 @@ namespace Dds
 		}
 		src.px.assign(px, px + static_cast<std::size_t>(src.w) * src.h * 4);
 		stbi_image_free(px);
-		// cards are opaque: any transparency in the picture is dropped (written as DXT1)
-		constexpr bool transparent = false;
-		for (std::size_t i = 3; i < src.px.size(); i += 4) {
-			src.px[i] = 255;
+		// a picture with transparency (e.g. a png with the background past its border cut away) keeps it when
+		// a_keepAlpha is set: it's written as DXT5 and the card meshes alpha-test it; everything else is opaque DXT1
+		bool transparent = false;
+		if (a_keepAlpha) {
+			for (std::size_t i = 3; i < src.px.size(); i += 4) {
+				if (src.px[i] < 250) {
+					transparent = true;
+					break;
+				}
+			}
+		}
+		if (!transparent) {
+			for (std::size_t i = 3; i < src.px.size(); i += 4) {
+				src.px[i] = 255;
+			}
 		}
 
 		float aspect = a_aspect;
