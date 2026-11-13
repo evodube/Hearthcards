@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(Hearthcards VERSION 0.9.2 LANGUAGES CXX)
+project(Hearthcards VERSION 0.9.3 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -24,7 +24,7 @@ find_path(STB_INCLUDE_DIRS "stb_image.h" REQUIRED)
 target_include_directories(${PROJECT_NAME} PRIVATE src ${STB_INCLUDE_DIRS})
 target_precompile_headers(${PROJECT_NAME} PRIVATE src/PCH.h)
 target_compile_definitions(${PROJECT_NAME} PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
-target_link_libraries(${PROJECT_NAME} PRIVATE dxgi)
+target_link_libraries(${PROJECT_NAME} PRIVATE dxgi windowscodecs ole32)
 
 if (MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /utf-8 /permissive- /Zc:preprocessor)

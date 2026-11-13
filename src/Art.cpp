@@ -58,7 +58,8 @@ namespace Art
 		bool IsPicture(const fs::path& a_p)
 		{
 			const auto ext = Lower(ToUtf8(a_p.extension()));
-			return ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tga";
+			return ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tga" || ext == ".webp" ||
+			       ext == ".tif" || ext == ".tiff" || ext == ".gif" || ext == ".jfif";
 		}
 
 		// "037 - The Dragonborn [R]" -> 37, "The Dragonborn", 2

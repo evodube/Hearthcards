@@ -14,6 +14,8 @@
 
 #include "Dds.h"
 
+#include <wincodec.h>  // Windows Imaging Component: fallback decoder
+
 // Picture decoding and DXT1/DXT5 compression, based on Hearthframe's.
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_WINDOWS_UTF8
@@ -302,6 +304,115 @@ namespace Dds
 		return r;
 	}
 
+	namespace
+	{
+		// What a file really is, from its first bytes (a ".jpg" saved from a website is often WebP or AVIF).
+		std::string SniffFormat(const std::vector<std::uint8_t>& a_b)
+		{
+			auto at = [&](std::size_t o, const char* s) {
+				const auto n = std::strlen(s);
+				return a_b.size() >= o + n && std::memcmp(a_b.data() + o, s, n) == 0;
+			};
+			if (a_b.size() >= 3 && a_b[0] == 0xFF && a_b[1] == 0xD8 && a_b[2] == 0xFF) {
+				return "JPEG";
+			}
+			if (at(0, "\x89PNG")) {
+				return "PNG";
+			}
+			if (at(0, "RIFF") && at(8, "WEBP")) {
+				return "WebP";
+			}
+			if (at(4, "ftypavif") || at(4, "ftypavis")) {
+				return "AVIF";
+			}
+			if (at(4, "ftypheic") || at(4, "ftypheix") || at(4, "ftypmif1")) {
+				return "HEIC";
+			}
+			if (at(0, "GIF8")) {
+				return "GIF";
+			}
+			if (at(0, "BM")) {
+				return "BMP";
+			}
+			if (at(0, "II*") || at(0, "MM\0*")) {
+				return "TIFF";
+			}
+			return "unknown";
+		}
+
+		template <class T>
+		void SafeRelease(T*& a_p)
+		{
+			if (a_p) {
+				a_p->Release();
+				a_p = nullptr;
+			}
+		}
+
+		// Windows Imaging Component: reads what stb_image can't - CMYK / arithmetic-coded JPEGs, WebP, TIFF,
+		// GIF, and HEIC/AVIF when Windows has those codecs. The result is malloc'd like stb_image's.
+		unsigned char* DecodeWithWic(const std::vector<std::uint8_t>& a_bytes, int& a_w, int& a_h, std::string& a_error)
+		{
+			const HRESULT init = ::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+			IWICImagingFactory*    factory = nullptr;
+			IWICStream*            stream = nullptr;
+			IWICBitmapDecoder*     decoder = nullptr;
+			IWICBitmapFrameDecode* frame = nullptr;
+			IWICFormatConverter*   converter = nullptr;
+			unsigned char*         out = nullptr;
+			HRESULT                hr = ::CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory));
+			if (SUCCEEDED(hr)) {
+				hr = factory->CreateStream(&stream);
+			}
+			if (SUCCEEDED(hr)) {
+				hr = stream->InitializeFromMemory(const_cast<BYTE*>(a_bytes.data()), static_cast<DWORD>(a_bytes.size()));
+			}
+			if (SUCCEEDED(hr)) {
+				hr = factory->CreateDecoderFromStream(stream, nullptr, WICDecodeMetadataCacheOnDemand, &decoder);
+			}
+			if (SUCCEEDED(hr)) {
+				hr = decoder->GetFrame(0, &frame);
+			}
+			if (SUCCEEDED(hr)) {
+				hr = factory->CreateFormatConverter(&converter);
+			}
+			if (SUCCEEDED(hr)) {
+				hr = converter->Initialize(frame, GUID_WICPixelFormat32bppRGBA, WICBitmapDitherTypeNone, nullptr, 0.0, WICBitmapPaletteTypeCustom);
+			}
+			UINT w = 0, h = 0;
+			if (SUCCEEDED(hr)) {
+				hr = converter->GetSize(&w, &h);
+			}
+			if (SUCCEEDED(hr) && (w == 0 || h == 0 || w > 16384 || h > 16384)) {
+				hr = E_FAIL;
+			}
+			if (SUCCEEDED(hr)) {
+				const auto size = static_cast<std::size_t>(w) * h * 4;
+				out = static_cast<unsigned char*>(std::malloc(size));
+				hr = out ? converter->CopyPixels(nullptr, w * 4, static_cast<UINT>(size), out) : E_OUTOFMEMORY;
+				if (FAILED(hr)) {
+					std::free(out);
+					out = nullptr;
+				}
+			}
+			SafeRelease(converter);
+			SafeRelease(frame);
+			SafeRelease(decoder);
+			SafeRelease(stream);
+			SafeRelease(factory);
+			if (SUCCEEDED(init)) {
+				::CoUninitialize();
+			}
+			if (!out) {
+				a_error = fmt::format("Windows can't decode it either (HRESULT {:08X})", static_cast<std::uint32_t>(hr));
+				return nullptr;
+			}
+			a_w = static_cast<int>(w);
+			a_h = static_cast<int>(h);
+			return out;
+		}
+	}
+
 	unsigned char* DecodePicture(const fs::path& a_path, int& a_w, int& a_h, std::string& a_error, bool& a_notFound)
 	{
 		a_notFound = false;
@@ -318,7 +429,15 @@ namespace Dds
 				a_error.clear();
 				return px;
 			}
-			a_error = std::string("can't decode the picture: ") + (stbi_failure_reason() ? stbi_failure_reason() : "unknown format");
+			const std::string stbWhy = stbi_failure_reason() ? stbi_failure_reason() : "unknown format";
+			const auto        format = SniffFormat(file.bytes);
+			std::string       wicWhy;
+			if (auto* wic = DecodeWithWic(file.bytes, a_w, a_h, wicWhy)) {
+				spdlog::info("Card art: {} is really {} ({}) - read with the Windows decoder", [&] { const auto u = a_path.filename().u8string(); return std::string(u.begin(), u.end()); }(), format, stbWhy);
+				a_error.clear();
+				return wic;
+			}
+			a_error = fmt::format("can't decode the picture - the file is really {} ({}; {})", format, stbWhy, wicWhy);
 			std::this_thread::sleep_for(std::chrono::milliseconds(300));  // maybe it was still being written
 		}
 		return nullptr;
