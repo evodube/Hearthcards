@@ -27,7 +27,7 @@ Skyrim Special Edition 1.5.97 and Anniversary Edition 1.6.x (Steam and GOG), one
 
 Drop pictures into `Data\SKSE\Plugins\Hearthcards\Cards\` and start the game - they're converted to
 the card textures automatically. Name them by card number: `037.png`, or `037 - The Dragonborn [R].png` to
-also set the name and rarity (`[C]`, `[U]`, `[R]`); `back.png` is the card back. Any size, png/jpg/bmp/tga,
+also set the name and rarity (`[C]`, `[U]`, `[R]`); `back.png` is the card back. Any size, png/jpg/jpeg,
 stretched to a 5:7 card (Hearthcards.ini `iArtFit` can fit or crop instead). Details in `Data\SKSE\Plugins\Hearthcards\Cards\README.txt`.
 
 ## Settings
