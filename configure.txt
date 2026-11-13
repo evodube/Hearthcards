@@ -1,0 +1,168 @@
+-- Running vcpkg install
+A suitable version of cmake was not found (required v4.4.0).
+Downloading https://github.com/Kitware/CMake/releases/download/v4.4.0/cmake-4.4.0-windows-x86_64.zip -> cmake-4.4.0-windows-x86_64.zip
+Successfully downloaded cmake-4.4.0-windows-x86_64.zip
+Extracting cmake...
+Detecting compiler hash for triplet x64-windows...
+Compiler found: C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe
+Detecting compiler hash for triplet x64-windows-static-md...
+Compiler found: C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe
+The following packages will be built and installed:
+    directxmath:x64-windows-static-md@2025-04-03
+    directxtk:x64-windows-static-md@2025-10-27
+    fmt:x64-windows-static-md@12.1.0
+    nlohmann-json:x64-windows-static-md@3.12.0#1
+    rapidcsv:x64-windows-static-md@8.90
+    simpleini:x64-windows-static-md@4.25
+    spdlog:x64-windows-static-md@1.16.0
+    stb:x64-windows-static-md@2024-07-29#1
+    toml11:x64-windows-static-md@4.4.0
+  * vcpkg-cmake:x64-windows@2024-04-23
+  * vcpkg-cmake-config:x64-windows@2024-05-23
+    xbyak:x64-windows-static-md@7.28
+Additional packages (*) will be modified to complete this operation.
+Restored 12 package(s) from D:\a\Hearthcards\Hearthcards\vcpkg-bincache in 378 ms. Use --debug to see more details.
+Installing 1/12 vcpkg-cmake-config:x64-windows@2024-05-23...
+vcpkg-cmake-config:x64-windows@2024-05-23 package ABI: b31dd4b54b6476f33557424ac12cf9a11156923f3f78fb535adfd7adc95b43ce
+Elapsed time to handle vcpkg-cmake-config:x64-windows: 1.91 ms
+Installing 2/12 vcpkg-cmake:x64-windows@2024-04-23...
+vcpkg-cmake:x64-windows@2024-04-23 package ABI: 7f10cf22d8898c1e1cfe81eb3aa84e1cf7a81ecaf39fb14fde849ac92c49ae2b
+Elapsed time to handle vcpkg-cmake:x64-windows: 2.28 ms
+Installing 3/12 directxmath:x64-windows-static-md@2025-04-03...
+directxmath:x64-windows-static-md@2025-04-03 package ABI: 0c1c97ebe1345de5b238784bbcdd9eb9689557c9e3d2406d04c5adee86ac6d3b
+Elapsed time to handle directxmath:x64-windows-static-md: 3.89 ms
+Installing 4/12 directxtk:x64-windows-static-md@2025-10-27...
+directxtk:x64-windows-static-md@2025-10-27 package ABI: 05235ac1dad54f4e8d675e29274ac8286626f60647c08c8ce1dad42f41bbdb27
+Elapsed time to handle directxtk:x64-windows-static-md: 5.83 ms
+Installing 5/12 fmt:x64-windows-static-md@12.1.0...
+fmt:x64-windows-static-md@12.1.0 package ABI: d152c6283f4d383d909edcbb578c1e5d0c32f81b632c600dcb18d2c49a6d21cf
+Elapsed time to handle fmt:x64-windows-static-md: 4.89 ms
+Installing 6/12 nlohmann-json:x64-windows-static-md@3.12.0#1...
+nlohmann-json:x64-windows-static-md@3.12.0#1 package ABI: b2420dbb05940cffbc18a77a37f3be89d1128be49d98a9f4e4373f32516527c1
+Elapsed time to handle nlohmann-json:x64-windows-static-md: 6.69 ms
+Installing 7/12 rapidcsv:x64-windows-static-md@8.90...
+rapidcsv:x64-windows-static-md@8.90 package ABI: ad7883af733a53d7a0f1817b2c4a70774875b1f57072aab0728ff84c73d71fe8
+Elapsed time to handle rapidcsv:x64-windows-static-md: 2.11 ms
+Installing 8/12 simpleini:x64-windows-static-md@4.25...
+simpleini:x64-windows-static-md@4.25 package ABI: fb60c455df1d0f592bb8eb3a339b8b8701e403d1c1023ead1ffe5ec260ead792
+Elapsed time to handle simpleini:x64-windows-static-md: 2.1 ms
+Installing 9/12 spdlog:x64-windows-static-md@1.16.0...
+spdlog:x64-windows-static-md@1.16.0 package ABI: 9314accd0aecaa872e51fc24d7b4c4188b407a34080a5b0434ece4e06b9fdbff
+Elapsed time to handle spdlog:x64-windows-static-md: 13.5 ms
+Installing 10/12 stb:x64-windows-static-md@2024-07-29#1...
+stb:x64-windows-static-md@2024-07-29#1 package ABI: d015622f0ccb3d164f0f8e349bcc0991e8e6e16e395d14c907be5a9024f62117
+Elapsed time to handle stb:x64-windows-static-md: 5.39 ms
+Installing 11/12 toml11:x64-windows-static-md@4.4.0...
+toml11:x64-windows-static-md@4.4.0 package ABI: 0bce91756ddcf88cea7413943782880874e806d3b3785078a8c8718f01b92448
+Elapsed time to handle toml11:x64-windows-static-md: 21 ms
+Installing 12/12 xbyak:x64-windows-static-md@7.28...
+xbyak:x64-windows-static-md@7.28 package ABI: 2d075579568406b4a605ae12c532b1a7f8b13d36a46acb1ced5526a0c01480b6
+Elapsed time to handle xbyak:x64-windows-static-md: 3.53 ms
+Installed contents are licensed to you by owners. Microsoft is not responsible for, nor does it grant any licenses to, third-party packages.
+Packages installed in this vcpkg installation declare the following licenses:
+(MIT OR CC-PDDC)
+BSD-3-Clause
+MIT
+The DirectXMath package provides CMake targets:
+
+    find_package(directxmath CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE Microsoft::DirectXMath)
+
+The DirectX Tool Kit for DX11 package provides CMake targets:
+
+    find_package(directxtk CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE Microsoft::DirectXTK)
+
+The package fmt provides CMake targets:
+
+    find_package(fmt CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE fmt::fmt)
+
+    # Or use the header-only version
+    find_package(fmt CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE fmt::fmt-header-only)
+
+The package nlohmann-json provides CMake targets:
+
+    find_package(nlohmann_json CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE nlohmann_json::nlohmann_json)
+
+The package nlohmann-json can be configured to not provide implicit conversions via a custom triplet file:
+
+    set(nlohmann-json_IMPLICIT_CONVERSIONS OFF)
+
+For more information, see the docs here:
+    
+    https://json.nlohmann.me/api/macros/json_use_implicit_conversions/
+
+rapidcsv is header-only and can be used from CMake via:
+
+  find_path(RAPIDCSV_INCLUDE_DIRS "rapidcsv.h")
+  target_include_directories(main PRIVATE ${RAPIDCSV_INCLUDE_DIRS})
+
+simpleini is header-only and can be used from CMake via:
+
+  find_path(SIMPLEINI_INCLUDE_DIRS "ConvertUTF.c")
+  target_include_directories(main PRIVATE ${SIMPLEINI_INCLUDE_DIRS})
+
+The package spdlog provides CMake targets:
+
+    find_package(spdlog CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE spdlog::spdlog)
+
+    # Or use the header-only version
+    find_package(spdlog CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE spdlog::spdlog_header_only)
+
+The package stb provides CMake targets:
+
+    find_package(Stb REQUIRED)
+    target_include_directories(main PRIVATE ${Stb_INCLUDE_DIR})
+toml11 provides CMake targets:
+
+  # this is heuristically generated, and may not be correct
+  find_package(toml11 CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE toml11::toml11)
+
+xbyak provides CMake targets:
+
+  # this is heuristically generated, and may not be correct
+  find_package(xbyak CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE xbyak::xbyak)
+
+All requested installations completed successfully in: 75.4 ms
+-- Running vcpkg install - done
+-- Selecting Windows SDK version 10.0.26100.0 to target Windows 10.0.20348.
+-- The CXX compiler identification is MSVC 19.44.35229.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+Options:
+	Enable Xbyak: OFF
+	Enable Patch Safety Checks: ON
+	Enable Skyrim SE: ON
+	Enable Skyrim AE: ON
+	Enable Skyrim VR: OFF
+	Build Tests: OFF
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed
+-- Looking for pthread_create in pthreads
+-- Looking for pthread_create in pthreads - not found
+-- Looking for pthread_create in pthread
+-- Looking for pthread_create in pthread - not found
+-- Found Threads: TRUE
+-- The C compiler identification is MSVC 19.44.35229.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+Parsing commonlibsse_plugin_version 0.9.3
+Setting minor version to 9
+Setting patch version to 3
+Parsing ADD_COMMONLIBSSE_PLUGIN_MINIMUM_SKSE_VERSION 0
+-- Configuring done (44.6s)
+-- Generating done (0.4s)
+-- Build files have been written to: D:/a/Hearthcards/Hearthcards/build
