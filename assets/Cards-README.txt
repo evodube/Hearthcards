@@ -11,7 +11,7 @@ File names start with the card number (1-100):
   037 - The Dragonborn [R].png         art + name + rarity: [C] common, [U] uncommon, [R] rare
   back.png                             the back of every card
 
-  png, jpg, webp, bmp, tga, tif or gif, any size. The whole picture is stretched onto the 5:7 portrait card - nothing
+  png, jpg, bmp or tga, any size. The whole picture is stretched onto the 5:7 portrait card - nothing
   is cut off. 500 x 700, 1000 x 1400 and so on fit without any stretching.
   Hearthcards.ini [Art] iArtFit: 0 stretch (default), 1 fit with an edge-coloured strip, 2 crop.
 
